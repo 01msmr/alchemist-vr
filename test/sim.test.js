@@ -73,7 +73,7 @@ test('dose in window on liquid lead becomes amalgam after the hold', () => {
 
 test('too much mercury makes sludge immediately', () => {
   const s = createState();
-  Object.assign(s.crucible, { temp: 0.7, mercury: 1.3 });
+  Object.assign(s.crucible, { temp: 0.7, mercury: CFG.DOSE_MAX + 0.1 });
   run(s, DT);
   assert.equal(s.crucible.content, 'sludge');
 });
@@ -95,9 +95,9 @@ test('overheating burns the lead', () => {
 });
 
 test('quality peaks at the middle of dose and heat windows', () => {
-  const best = amalgamQuality({ mercury: 1.0, temp: (CFG.MELT + CFG.BURN) / 2 });
+  const best = amalgamQuality({ mercury: (CFG.DOSE_MIN + CFG.DOSE_MAX) / 2, temp: (CFG.MELT + CFG.BURN) / 2 });
   assert.ok(Math.abs(best - 1) < 1e-9);
-  assert.ok(amalgamQuality({ mercury: 1.14, temp: 0.52 }) < 0.3);
+  assert.ok(amalgamQuality({ mercury: CFG.DOSE_MAX - 0.01, temp: CFG.MELT + 0.02 }) < 0.3);
 });
 
 test('lip geometry and tilt from the up vector', () => {
