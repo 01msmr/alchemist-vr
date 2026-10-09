@@ -13,9 +13,9 @@ export function vialLip(pos, up) {
   return { x: pos.x + up.x * VIAL_HALF, y: pos.y + up.y * VIAL_HALF, z: pos.z + up.z * VIAL_HALF };
 }
 
-// Tilt 0..1 from the vial's up vector: 0 = upright, 1 = maxAngle (radians) or more.
-export function tiltOf(up, maxAngle) {
-  return Math.min(1, Math.acos(Math.min(1, Math.max(-1, up.y))) / maxAngle);
+// Angle (radians) between the vial's up vector and straight up: 0 = upright, PI = upside down.
+export function tiltAngle(up) {
+  return Math.acos(Math.min(1, Math.max(-1, up.y)));
 }
 
 // Distance from point p to the segment a-b (all {x, y, z}).

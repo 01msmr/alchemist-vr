@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { toGeometry } from './voxel-mesh.js';
-import { createState, step, takeMatch, strikeMatch, dropMatch, lightCandle, snuffCandle } from './game/sim.js';
+import { createState, step, pour, pourStartAngle, landMercury, takeMatch, strikeMatch, dropMatch, lightCandle, snuffCandle } from './game/sim.js';
+import { spillVelocity, spawnDrop, stepDrops, MAX_DROPS } from './game/drops.js';
 import { CFG } from './game/config.js';
-import { tiltDirection, vialLip, tiltOf, distanceToSegment, VIAL_HALF } from './game/geometry.js';
+import { tiltDirection, vialLip, tiltAngle, distanceToSegment, VIAL_HALF } from './game/geometry.js';
 import {
   vialModel, vialLayers, crucibleModel, crucibleContents, standModel, FLAME_FRAMES, matchModel, matchboxModel,
 } from './assets.js';
-import { setupVR, tipWorld, pulse, resetPressed, TIP_Z } from './vr.js';
+import { setupVR, tipWorld, palmWorld, analog, showGrip, pulse, resetPressed, TIP_Z } from './vr.js';
 
 const VOXEL = 0.01; // 1 voxel = 1 cm
 
@@ -23,7 +24,8 @@ const TABLE_Z1 = TABLE.z - WORLD_ORIGIN.z + TABLE.d / 2 - 0.05;
 // layout in world-local coordinates (meters, y up from the table top)
 const CRUCIBLE = new THREE.Vector3(0, 0.07, 0); // crucible origin (bottom center), sits on the stand
 const CRUCIBLE_TOP = 0.14;
-const CRUCIBLE_MOUTH = 0.04; // lip must be within this horizontal distance to pour in
+// where falling drops land: inside the mouth = in the crucible, on the rim ring = splash off
+const TARGET = { cx: 0, cz: 0, top: CRUCIBLE_TOP, mouth: 0.035, rim: 0.047 };
 const WICK = new THREE.Vector3(0, 0.045, 0);
 const WICK_RADIUS = 0.035; // lit match head this close to the wick lights the candle
 const SNUFF_RADIUS = 0.05; // trigger with the tip this close to the wick snuffs the candle
@@ -33,9 +35,10 @@ const BOX_HALF = { x: 0.03, z: 0.02 };
 const BOX_CENTER = new THREE.Vector3(BOX.x, 0.015, BOX.z);
 const BOX_GRAB_RADIUS = 0.045;
 const STRIKER_Y = [0.02, 0.065]; // head height band above the striker (top at 0.03)
-const VIAL_GRAB_RADIUS = 0.03; // controller tip to the vial's axis
+const VIAL_GRAB_RADIUS = 0.03; // palm (closed hand) to the vial's axis
 const MATCH_HEAD_DY = 0.045; // head center above the match model's bottom
-const MAX_TILT = THREE.MathUtils.degToRad(110);
+const MATCH_PINCH_DY = 0.01; // the fingers hold the match this far above its bottom
+const MAX_TILT = THREE.MathUtils.degToRad(130); // mouse: Shift + drag range
 
 // desktop fallback
 const HOLD_Y = 0.2; // height of the mouse-held vial's center
@@ -124,9 +127,8 @@ const holdBad = makeArc(0.038, 0.044, 0xe53935, CRUCIBLE_TOP + 0.002);
 gaugeBack.userData.set(0, 1);
 gaugeWindow.userData.set(CFG.DOSE_MIN / CFG.VIAL_CAPACITY, CFG.DOSE_MAX / CFG.VIAL_CAPACITY);
 
-// Pour stream: a column of 1 cm voxels falling from the lip.
-const STREAM_CUBES = 16;
-const stream = new THREE.InstancedMesh(new THREE.BoxGeometry(VOXEL, VOXEL, VOXEL), new THREE.MeshBasicMaterial({ color: 0xd7e1eb }), STREAM_CUBES);
+// Mercury drops in flight: 1 cm voxels, drawn on the 1 cm grid.
+const stream = new THREE.InstancedMesh(new THREE.BoxGeometry(VOXEL, VOXEL, VOXEL), new THREE.MeshBasicMaterial({ color: 0xd7e1eb }), MAX_DROPS);
 stream.frustumCulled = false;
 stream.count = 0;
 world.add(stream);
@@ -172,6 +174,12 @@ const prevHead = new THREE.Vector3();
 let prevHeadValid = false;
 const grabOffset = new THREE.Vector2();
 const keys = new Map(); // remesh cache: part name -> key
+const drops = []; // mercury drops in flight
+let pourAccum = 0; // poured amount not yet turned into a drop
+const lip = new THREE.Vector3();
+const prevLip = new THREE.Vector3();
+const lipVel = new THREE.Vector3();
+let prevLipValid = false;
 const mat = new THREE.Matrix4();
 const scaleTmp = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
@@ -183,23 +191,41 @@ function reset() {
   matchHolder = null;
   tilt = 0;
   prevHeadValid = false;
+  drops.length = 0;
+  pourAccum = 0;
+  prevLipValid = false;
   vialPos.copy(VIAL_REST);
   vialQuat.identity();
-  for (const hand of hands) hand.held = null;
+  for (const hand of hands) {
+    hand.held = null;
+    hand.pinchOn = false;
+    hand.squeezeOn = false;
+  }
   keys.clear();
 }
 reset();
 
-// --- VR input: squeeze to take (the tip must be on the object), release to let go ---
+// --- VR input: two grips, like two kinds of fingers ---
+// Full hand (grip button): the vial. Palm must be on the vial as the hand closes.
+// Pinch (index finger, trigger): the match, and the wick. The tip must be on it as the fingers close.
+// A grab only starts while the hand is closing; releasing is a deliberate loosening (hysteresis).
 const tip = new THREE.Vector3();
+const palm = new THREE.Vector3();
 function tipLocal(hand, out) {
   return world.worldToLocal(tipWorld(hand, out));
 }
+function palmLocal(hand, out) {
+  return world.worldToLocal(palmWorld(hand, out));
+}
 
-// Match: held like a pen, head at the tip (grip -Z). Model +y -> grip -Z, head center at TIP_Z.
+// Match: pinched near its bottom, head sticking out 3.5 cm beyond the fingers. Model +y -> grip -Z.
 const MATCH_ATTACH = new THREE.Matrix4()
-  .makeTranslation(0, 0, -(TIP_Z - MATCH_HEAD_DY))
+  .makeTranslation(0, 0, -(TIP_Z - MATCH_PINCH_DY))
   .multiply(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
+const MATCH_HEAD_LOCAL = new THREE.Vector3(0, 0, -(TIP_Z - MATCH_PINCH_DY + MATCH_HEAD_DY));
+function matchHeadLocal(hand, out) {
+  return world.worldToLocal(out.copy(MATCH_HEAD_LOCAL).applyMatrix4(hand.grip.matrixWorld));
+}
 
 function placeOnTable(p) {
   p.x = Math.min(TABLE_X, Math.max(-TABLE_X, p.x));
@@ -234,38 +260,55 @@ function releaseMatch() {
   dropMatch(state); // a dropped match is gone
 }
 
-function squeezeStart(hand) {
-  if (hand.held) return;
-  tipLocal(hand, tip);
+function tryGrabVial(hand) {
+  palmLocal(hand, palm);
   const a = vialPos.clone().addScaledVector(vialUp, -VIAL_HALF);
   const b = vialPos.clone().addScaledVector(vialUp, VIAL_HALF);
-  if (vialHolder === null && distanceToSegment(tip, a, b) <= VIAL_GRAB_RADIUS) {
-    vialHolder = hand.index;
-    hand.held = 'vial';
-    // keep the pose of the vial relative to the hand: 1:1 control, no snapping
-    mat.compose(vialPos, vialQuat, ONE).premultiply(world.matrixWorld);
-    hand.offset = hand.grip.matrixWorld.clone().invert().multiply(mat);
-    pulse(hand, 0.3, 20);
-  } else if (matchHolder === null && tip.distanceTo(BOX_CENTER) <= BOX_GRAB_RADIUS && takeMatch(state)) {
+  if (vialHolder !== null || distanceToSegment(palm, a, b) > VIAL_GRAB_RADIUS) return;
+  vialHolder = hand.index;
+  hand.held = 'vial';
+  // keep the pose of the vial relative to the hand: it pivots about where you took it
+  mat.compose(vialPos, vialQuat, ONE).premultiply(world.matrixWorld);
+  hand.offset = hand.grip.matrixWorld.clone().invert().multiply(mat);
+  pulse(hand, 0.3, 20);
+}
+
+function tryPinch(hand) {
+  tipLocal(hand, tip);
+  if (matchHolder === null && tip.distanceTo(BOX_CENTER) <= BOX_GRAB_RADIUS && takeMatch(state)) {
     matchHolder = hand.index;
     hand.held = 'match';
     pulse(hand, 0.3, 20);
-  }
-}
-
-function squeezeEnd(hand) {
-  if (hand.held === 'vial') releaseVial();
-  else if (hand.held === 'match') releaseMatch();
-}
-
-function selectStart(hand) {
-  if (tipLocal(hand, tip).distanceTo(WICK) <= SNUFF_RADIUS && state.candleLit) {
-    snuffCandle(state);
+  } else if (state.candleLit && tip.distanceTo(WICK) <= SNUFF_RADIUS) {
+    snuffCandle(state); // pinch out the flame
     pulse(hand, 0.2, 30);
   }
 }
 
-hands = setupVR(renderer, scene, { squeezeStart, squeezeEnd, selectStart });
+function updateGrips() {
+  for (const hand of hands) {
+    const { pinch, squeeze } = analog(hand);
+    showGrip(hand, pinch, squeeze);
+
+    if (!hand.squeezeOn && squeeze >= CFG.SQUEEZE_ON) {
+      hand.squeezeOn = true;
+      if (!hand.held) tryGrabVial(hand);
+    } else if (hand.squeezeOn && squeeze < CFG.SQUEEZE_OFF) {
+      hand.squeezeOn = false;
+      if (hand.held === 'vial') releaseVial();
+    }
+
+    if (!hand.pinchOn && pinch >= CFG.PINCH_ON) {
+      hand.pinchOn = true;
+      if (!hand.held) tryPinch(hand);
+    } else if (hand.pinchOn && pinch < CFG.PINCH_OFF) {
+      hand.pinchOn = false;
+      if (hand.held === 'match') releaseMatch();
+    }
+  }
+}
+
+hands = setupVR(renderer, scene);
 
 // --- desktop fallback: mouse ---
 const pointer = new THREE.Vector2();
@@ -400,7 +443,7 @@ function updatePoses() {
     const hand = hands[matchHolder];
     mat.copy(hand.grip.matrixWorld).multiply(MATCH_ATTACH).premultiply(worldInv);
     mat.decompose(matchMesh.position, matchMesh.quaternion, scaleTmp);
-    tipLocal(hand, head);
+    matchHeadLocal(hand, head);
   }
 }
 
@@ -432,7 +475,7 @@ function statusLines() {
   return [
     `candle ${state.candleLit ? 'LIT' : 'out'}  matches ${state.matches}` +
       (state.match ? `  in hand: ${state.match.lit > 0 ? `lit ${state.match.lit.toFixed(1)}s` : 'unlit'}` : ''),
-    `vial ${state.vial.fill.toFixed(2)}  wasted ${state.wasted.toFixed(2)}`,
+    `vial ${state.vial.fill.toFixed(2)} pours from ${Math.round((pourStartAngle(state.vial.fill) * 180) / Math.PI)} deg  wasted ${state.wasted.toFixed(2)}`,
     `crucible: ${c.content}  Hg ${c.mercury.toFixed(2)} (window ${CFG.DOSE_MIN}-${CFG.DOSE_MAX})`,
     `temp ${c.temp.toFixed(2)} (melt ${CFG.MELT} / burn ${CFG.BURN})` + (c.quality !== null ? `  quality ${c.quality.toFixed(2)}` : ''),
   ];
@@ -445,14 +488,33 @@ renderer.setAnimationLoop(() => {
   const time = clock.elapsedTime;
 
   for (const hand of hands) if (resetPressed(hand)) reset();
+  updateGrips();
 
   updatePoses();
-  const lip = vialLip(vialPos, vialUp);
-  const tiltNow = vialHolder === null ? 0 : tiltOf(vialUp, MAX_TILT);
-  const overCrucible = vialHolder !== null && Math.hypot(lip.x - CRUCIBLE.x, lip.z - CRUCIBLE.z) <= CRUCIBLE_MOUTH && lip.y > CRUCIBLE_TOP;
+  lip.copy(vialLip(vialPos, vialUp));
+  // lip velocity from hand motion, smoothed; the drops inherit it
+  if (vialHolder !== null && prevLipValid && dt > 0) {
+    lipVel.lerp(new THREE.Vector3().subVectors(lip, prevLip).divideScalar(dt).clampLength(0, 3), 0.4);
+  } else {
+    lipVel.set(0, 0, 0);
+  }
+  prevLip.copy(lip);
+  prevLipValid = vialHolder !== null;
 
   if (dt > 0) updateMatch(dt);
-  step(state, dt, { tilt: tiltNow, overCrucible });
+
+  const angle = vialHolder === null ? 0 : tiltAngle(vialUp);
+  pourAccum += pour(state, dt, angle);
+  while (pourAccum >= CFG.DROP_AMOUNT) {
+    pourAccum -= CFG.DROP_AMOUNT;
+    spawnDrop(drops, lip, spillVelocity(vialUp, state.flow / CFG.POUR_MAX_RATE, lipVel), CFG.DROP_AMOUNT);
+  }
+  stepDrops(drops, dt, TARGET, (amount, where) => {
+    if (where === 'crucible') landMercury(state, amount);
+    else state.wasted += amount; // splashed off the rim or fell on the table
+  });
+
+  step(state, dt);
   if (matchHolder !== null && !state.match) { // burnt out in the hand
     const hand = hands[matchHolder];
     if (hand) hand.held = null;
@@ -483,18 +545,12 @@ renderer.setAnimationLoop(() => {
   holdGood.userData.set(0, q((state.progress.amalgam || 0) / CFG.AMALGAM_HOLD));
   holdBad.userData.set(0, q((state.progress.burn || 0) / CFG.BURN_HOLD));
 
-  if (state.flow > 0) {
-    const endY = overCrucible ? CRUCIBLE_TOP - 0.02 : 0;
-    for (let i = 0; i < STREAM_CUBES; i++) {
-      const t = (i / STREAM_CUBES + time * 1.5) % 1;
-      matrix.setPosition(snap(lip.x), snap(lip.y + (endY - lip.y) * t), snap(lip.z));
-      stream.setMatrixAt(i, matrix);
-    }
-    stream.instanceMatrix.needsUpdate = true;
-    stream.count = STREAM_CUBES;
-  } else {
-    stream.count = 0;
-  }
+  drops.forEach((d, i) => {
+    matrix.setPosition(snap(d.x), snap(d.y), snap(d.z));
+    stream.setMatrixAt(i, matrix);
+  });
+  stream.instanceMatrix.needsUpdate = true;
+  stream.count = drops.length;
 
   const lines = statusLines();
   if (renderer.xr.isPresenting) {
@@ -506,6 +562,7 @@ renderer.setAnimationLoop(() => {
     hud.textContent =
       `matchbox: click to take a match, rub it fast over the striker | light candle: lit match at the wick | snuff: click candle\n` +
       `vial: drag with left mouse, Shift + drag up/down tilts | reset: R | orbit: drag empty space\n` +
+      `VR: grip button = full hand (vial), trigger = pinch (match, wick), B/Y = reset\n` +
       lines.join('\n');
     controls.update();
   }
