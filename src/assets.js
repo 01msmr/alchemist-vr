@@ -108,11 +108,11 @@ export function standModel(flame) {
   return o;
 }
 
-// 1x7x1 match: wood y0..3, head y4, flame y5..6 when lit.
-export function matchModel(lit) {
+// 1x7x1 match: wood y0..3, head y4 (gone when broken off), flame y5..6 when lit.
+export function matchModel(lit, broken = false) {
   const o = VoxelObject.empty(1, 7, 1, PALETTE);
   for (let y = 0; y <= 3; y++) o.set(0, y, 0, P.MATCH_WOOD);
-  o.set(0, 4, 0, P.MATCH_HEAD);
+  if (!broken) o.set(0, 4, 0, P.MATCH_HEAD);
   if (lit) {
     o.set(0, 5, 0, P.FLAME_A);
     o.set(0, 6, 0, P.FLAME_B);

@@ -110,3 +110,57 @@ test('debris falls, rests and expires', () => {
   assert.equal(events.gone.length, 1);
   assert.equal(events.gone[0].data, 'match');
 });
+
+// a hand holding the vial at a fixed target for a while; returns how it went
+function holdFor(physics, { mode, contact, strength, seconds = 1.5, target = { x: 0.4, y: 0.3, z: 0 }, lift = 0 }) {
+  physics.vial.position.set(target.x, target.y, target.z);
+  physics.vial.velocity.setZero();
+  const anchor = { x: target.x, y: target.y, z: target.z };
+  physics.startGrip(mode, anchor, contact);
+  let y = target.y;
+  for (let t = 0; t < seconds; t += 1 / 72) {
+    y += lift / 72;
+    physics.setGrip({ x: target.x, y, z: target.z }, { x: 0, y: lift, z: 0 }, { x: 0, y: 0, z: 0, w: 1 }, strength);
+    physics.step(1 / 72);
+  }
+  return { y, sep: physics.gripSeparation() };
+}
+
+test('a firm fist grip carries the vial and keeps it at the hand', () => {
+  const { physics } = make();
+  const r = holdFor(physics, { mode: 'fist', contact: 1, strength: 1 });
+  assert.ok(r.sep < 0.01, `separation ${r.sep}`);
+  assert.ok(Math.abs(physics.vial.position.y - 0.3) < 0.01);
+});
+
+test('a firm pinch carries the vial too', () => {
+  const { physics } = make();
+  const r = holdFor(physics, { mode: 'pinch', contact: 1, strength: 1 });
+  assert.ok(r.sep < 0.01);
+  assert.ok(Math.abs(physics.vial.position.y - 0.3) < 0.01);
+});
+
+test('a half grab (small contact) cannot carry the vial: it slips away', () => {
+  const { physics } = make();
+  const r = holdFor(physics, { mode: 'fist', contact: 0.3, strength: 1, seconds: 1 });
+  assert.ok(r.sep > GRIP_LOSE('fist'), `slipped by ${r.sep}`);
+});
+
+test('loosening the fingers makes the grip slip', () => {
+  const { physics } = make();
+  const r = holdFor(physics, { mode: 'pinch', contact: 1, strength: 0.3, seconds: 1 });
+  assert.ok(r.sep > GRIP_LOSE('pinch'));
+});
+
+test('letting go of a grip drops the vial', () => {
+  const { physics } = make();
+  holdFor(physics, { mode: 'fist', contact: 1, strength: 1, seconds: 0.5 });
+  physics.endGrip();
+  assert.equal(physics.isGripped(), false);
+  run(physics, 0.3);
+  assert.ok(physics.vial.position.y < 0.25);
+});
+
+function GRIP_LOSE(mode) {
+  return mode === 'fist' ? 0.05 : 0.04;
+}

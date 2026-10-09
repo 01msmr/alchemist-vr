@@ -36,7 +36,10 @@ export const CFG = {
   DOSE_MAX: 1.15,
   MATCHES: 3,
   MATCH_BURN: 8, // s a lit match lasts
-  STRIKE_SPEED: 0.5, // m/s the match head must move over the matchbox to light
+  // striking: a quick stroke along the striker; too slow only scrapes, far too fast snaps the head off
+  STRIKE_SPEED: 1.0, // m/s minimum
+  STRIKE_MAX: 3.0, // m/s above this the match head breaks
+  STRIKE_LENGTH: 0.03, // m of fast stroke needed to ignite
 
   AMALGAM_HOLD: 2, // s of liquid lead + dose in window
   BURN_HOLD: 1.5,

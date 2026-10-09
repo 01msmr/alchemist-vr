@@ -23,7 +23,7 @@ export function spawnDrop(list, p, v, amount) {
 
 // Advances all drops under gravity. A drop that crosses the crucible's top plane inside the mouth
 // lands in the crucible, on the rim ring it splashes off, anywhere else it falls to the table.
-// target: { cx, cz, top, mouth, rim }; onLand(amount, 'crucible' | 'rim' | 'table').
+// target: { cx, cz, top, mouth, rim }; onLand(amount, 'crucible' | 'rim' | 'table', x, z).
 export function stepDrops(list, dt, target, onLand) {
   for (let i = list.length - 1; i >= 0; i--) {
     const d = list[i];
@@ -33,16 +33,26 @@ export function stepDrops(list, dt, target, onLand) {
     d.y += d.vy * dt;
     d.z += d.vz * dt;
 
+    // where the drop was when it crossed a horizontal plane at `level` during this step
+    const crossing = (level) => {
+      const t = prevY === d.y ? 1 : (prevY - level) / (prevY - d.y);
+      return { x: d.x - d.vx * dt * (1 - t), z: d.z - d.vz * dt * (1 - t) };
+    };
     let where = null;
+    let at = null;
     if (prevY > target.top && d.y <= target.top) {
-      const t = (prevY - target.top) / (prevY - d.y); // fraction of this step before the crossing
-      const dist = Math.hypot(d.x - d.vx * dt * (1 - t) - target.cx, d.z - d.vz * dt * (1 - t) - target.cz);
+      at = crossing(target.top);
+      const dist = Math.hypot(at.x - target.cx, at.z - target.cz);
       if (dist <= target.mouth) where = 'crucible';
       else if (dist <= target.rim) where = 'rim';
+      else at = null;
     }
-    if (!where && d.y <= 0) where = 'table';
+    if (!where && d.y <= 0) {
+      where = 'table';
+      at = prevY > 0 ? crossing(0) : { x: d.x, z: d.z };
+    }
     if (where) {
-      onLand(d.amount, where);
+      onLand(d.amount, where, at.x, at.z);
       list.splice(i, 1);
     }
   }

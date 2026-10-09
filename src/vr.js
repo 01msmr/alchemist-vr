@@ -1,15 +1,14 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { createHand, TIP_Z, PALM_Z } from './hand.js';
+import { createPincer, createFistWrap, createPinchGrip, TIP_Z, PALM_Z } from './hand.js';
 
 export { TIP_Z, PALM_Z };
 
-const palmGeometry = new THREE.SphereGeometry(0.025, 12, 8);
-const IDLE_PALM = new THREE.Color(0x777b80);
-const ACTIVE_PALM = new THREE.Color(0x4caf50);
 
 // Sets up the VR session button and two controllers. A hand is
-// { index, grip, gamepad, held, grab, pinchOn, squeezeOn, ... }; the grip state belongs to the game code.
+// { index, grip, gamepad, held, holdMode, grab, pinchOn, squeezeOn, ... }; the grip state belongs to the game code.
+// `model` is the fingertip pincer on the controller; `fist` and `pinchGrip` are hands drawn on a held vial
+// (their groups are added to the game world by the caller).
 export function setupVR(renderer, scene) {
   renderer.xr.enabled = true;
   renderer.xr.setReferenceSpaceType('local-floor');
@@ -20,17 +19,15 @@ export function setupVR(renderer, scene) {
     const grip = renderer.xr.getControllerGrip(index);
     scene.add(controller, grip);
 
-    const model = createHand();
-    const palmMaterial = new THREE.MeshBasicMaterial({ color: IDLE_PALM, wireframe: true });
-    const palm = new THREE.Mesh(palmGeometry, palmMaterial);
-    palm.position.z = -PALM_Z;
-    grip.add(model.group, palm);
+    const model = createPincer();
+    grip.add(model.group);
 
     const hand = {
-      index, grip, gamepad: null, held: null, holdBlend: 0,
+      index, grip, gamepad: null, held: null, holdMode: null,
       // pose of the held vial relative to the hand: blends from where it was grabbed to the natural hold
-      grab: { fromPos: new THREE.Vector3(), fromQuat: new THREE.Quaternion(), toPos: new THREE.Vector3(), toQuat: new THREE.Quaternion(), t0: 0 },
-      pinchOn: false, squeezeOn: false, resetWasPressed: false, model, palmMaterial,
+      grab: { fromPos: new THREE.Vector3(), fromQuat: new THREE.Quaternion(), toPos: new THREE.Vector3(), toQuat: new THREE.Quaternion(), t0: 0, axial: 0 },
+      pinchOn: false, squeezeOn: false, resetWasPressed: false,
+      model, fist: createFistWrap(), pinchGrip: createPinchGrip(),
     };
     controller.addEventListener('connected', (e) => { hand.gamepad = e.data.gamepad; });
     controller.addEventListener('disconnected', () => { hand.gamepad = null; });
@@ -54,10 +51,9 @@ export function analog(hand) {
   return { pinch: b?.[0]?.value ?? 0, squeeze: b?.[1]?.value ?? 0 };
 }
 
-// Visual feedback: the hand closes with the finger values; the grab zone (palm sphere) turns green while gripping.
-export function showGrip(hand, pinch, squeeze) {
-  hand.model.update(pinch, squeeze);
-  hand.palmMaterial.color.copy(IDLE_PALM).lerp(ACTIVE_PALM, squeeze);
+// Visual feedback: the fingertips close with the trigger.
+export function showGrip(hand, pinch) {
+  hand.model.update(pinch);
 }
 
 export function pulse(hand, intensity, ms) {

@@ -12,19 +12,40 @@ export function createState() {
     vialBroken: false,
     candleLit: false,
     matches: CFG.MATCHES, // left in the box
-    match: null, // match in hand: { lit: seconds left burning, 0 = unlit }
+    match: null, // match in hand: { lit: seconds left burning (0 = unlit), stroke: m of fast stroke so far, broken: head snapped off }
   };
 }
 
 export function takeMatch(s) {
   if (s.match || s.matches <= 0) return false;
   s.matches--;
-  s.match = { lit: 0 };
+  s.match = { lit: 0, stroke: 0, broken: false };
   return true;
 }
 
 export function strikeMatch(s) {
-  if (s.match && s.match.lit === 0) s.match.lit = CFG.MATCH_BURN;
+  if (s.match && s.match.lit === 0 && !s.match.broken) s.match.lit = CFG.MATCH_BURN;
+}
+
+// The match head moved `dist` meters at `speed` m/s this frame. Only a fast stroke along the striker
+// lights it. Returns 'lit', 'broken' or null.
+export function strokeMatch(s, onStriker, speed, dist) {
+  const m = s.match;
+  if (!m || m.lit > 0 || m.broken) return null;
+  if (!onStriker || speed < CFG.STRIKE_SPEED) {
+    m.stroke = 0; // scraping slowly does nothing
+    return null;
+  }
+  if (speed > CFG.STRIKE_MAX) {
+    m.broken = true;
+    return 'broken';
+  }
+  m.stroke += dist;
+  if (m.stroke >= CFG.STRIKE_LENGTH) {
+    m.lit = CFG.MATCH_BURN;
+    return 'lit';
+  }
+  return null;
 }
 
 export function dropMatch(s) {

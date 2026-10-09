@@ -11,7 +11,7 @@ function fly(drop, p, v, maxSeconds = 2) {
   spawnDrop(list, p, v, 0.01);
   const landed = [];
   let t = 0;
-  for (; t < maxSeconds && list.length; t += 0.005) stepDrops(list, 0.005, TARGET, (a, w) => landed.push({ a, w, t }));
+  for (; t < maxSeconds && list.length; t += 0.005) stepDrops(list, 0.005, TARGET, (a, w, x, z) => landed.push({ a, w, t, x, z }));
   return landed[0];
 }
 
@@ -61,4 +61,12 @@ test('spill velocity: along the horizontal tilt, plus the hand; downward once th
   assert.ok(Math.abs(fast.x - 0.2) < 1e-12 && Math.abs(fast.y - 0.1) < 1e-12);
   const down = spillVelocity({ x: 0, y: -1, z: 0 }, 1, still);
   assert.ok(down.y < 0 && down.x === 0 && down.z === 0);
+});
+
+test('landing reports where the drop hit', () => {
+  const miss = fly(null, { x: 0.2, y: 0.1, z: -0.1 }, still);
+  assert.equal(miss.w, 'table');
+  assert.ok(Math.abs(miss.x - 0.2) < 1e-6 && Math.abs(miss.z + 0.1) < 1e-6);
+  const thrown = fly(null, { x: 0.2, y: 0.1, z: 0 }, { x: 1, y: 0, z: 0 });
+  assert.ok(thrown.x > 0.2 + 0.05, 'carried by its velocity');
 });

@@ -2,16 +2,17 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { toGeometry } from './voxel-mesh.js';
 import {
-  createState, step, pour, pourStartAngle, landMercury, breakVial, takeMatch, strikeMatch, dropMatch, lightCandle, snuffCandle,
+  createState, step, pour, pourStartAngle, landMercury, breakVial, takeMatch, strokeMatch, dropMatch, lightCandle, snuffCandle,
 } from './game/sim.js';
 import { spillVelocity, spawnDrop, stepDrops, MAX_DROPS } from './game/drops.js';
 import { CFG } from './game/config.js';
+import { createPuddles, CELL, MAX_CELL } from './game/puddles.js';
 import { tiltDirection, vialLip, tiltAngle, distanceToSegment, VIAL_HALF } from './game/geometry.js';
 import {
   vialModel, vialLayers, crucibleModel, crucibleContents, standModel, FLAME_FRAMES, matchModel, matchboxModel,
 } from './assets.js';
 import { setupVR, tipWorld, palmWorld, analog, showGrip, pulse, resetPressed, TIP_Z, PALM_Z } from './vr.js';
-import { createPhysics } from './physics.js';
+import { createPhysics, GRIP } from './physics.js';
 
 const VOXEL = 0.01; // 1 voxel = 1 cm
 
@@ -142,6 +143,32 @@ world.add(stream);
 const snap = (v) => Math.round(v / VOXEL) * VOXEL;
 const matrix = new THREE.Matrix4();
 
+// Spilled mercury stays on the table as flat 1 cm patches until reset.
+const puddles = createPuddles(TABLE_BOUNDS);
+const PUDDLE_MAX = 3000;
+const puddleMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xaebac6 }), PUDDLE_MAX);
+puddleMesh.frustumCulled = false;
+puddleMesh.count = 0;
+world.add(puddleMesh);
+let puddleVersion = -1;
+function updatePuddleMesh() {
+  if (puddleVersion === puddles.version) return;
+  puddleVersion = puddles.version;
+  let i = 0;
+  const pos = new THREE.Vector3();
+  const scale = new THREE.Vector3();
+  const none = new THREE.Quaternion();
+  for (const [cell, amount] of puddles.cells) {
+    if (i >= PUDDLE_MAX) break;
+    const [ix, iz] = cell.split(',').map(Number);
+    const h = 0.002 + 0.004 * Math.min(1, amount / MAX_CELL); // thicker where there is more
+    matrix.compose(pos.set(ix * CELL, h / 2 + 0.0003, iz * CELL), none, scale.set(CELL * 0.98, h, CELL * 0.98));
+    puddleMesh.setMatrixAt(i++, matrix);
+  }
+  puddleMesh.count = i;
+  puddleMesh.instanceMatrix.needsUpdate = true;
+}
+
 // Status panel behind the table: the only text you can read inside the headset.
 const hudCanvas = document.createElement('canvas');
 hudCanvas.width = 1024;
@@ -194,6 +221,12 @@ const vialAng = new THREE.Vector3();
 const prevVialPos = new THREE.Vector3();
 const prevVialQuat = new THREE.Quaternion();
 let vialTrackValid = false;
+// where a hand wants the held vial, and how that target moves
+const gripPos = new THREE.Vector3();
+const gripQuat = new THREE.Quaternion();
+const gripVel = new THREE.Vector3();
+const prevGripPos = new THREE.Vector3();
+let gripTrackValid = false;
 const mat = new THREE.Matrix4();
 const scaleTmp = new THREE.Vector3();
 const handPos = new THREE.Vector3();
@@ -236,13 +269,16 @@ function reset() {
   prevHeadValid = false;
   prevLipValid = false;
   vialTrackValid = false;
+  gripTrackValid = false;
   drops.length = 0;
+  puddles.clear();
   pourAccum = 0;
   vialPos.copy(VIAL_REST);
   vialQuat.identity();
   physics.reset();
   for (const hand of hands) {
     hand.held = null;
+    hand.holdMode = null;
     hand.pinchOn = false;
     hand.squeezeOn = false;
   }
@@ -291,21 +327,46 @@ function trackVialMotion(dt) {
   vialTrackValid = true;
 }
 
-function takeVial() {
-  vialHolder = null; // set by the caller
+// Mouse: the vial is held rigidly (kinematic) and follows the pointer.
+function holdWithMouse() {
   physics.hold();
   vialTrackValid = false;
 }
 
+// Motion of the target a hand wants the vial at (for the damping of the grip spring).
+function trackGrip(dt) {
+  if (gripTrackValid && dt > 0) gripVel.lerp(tmp.subVectors(gripPos, prevGripPos).divideScalar(dt), 0.5).clampLength(0, 5);
+  else gripVel.set(0, 0, 0);
+  prevGripPos.copy(gripPos);
+  gripTrackValid = true;
+}
+
 function releaseVial() {
   if (vialHolder === null) return;
-  const hand = hands[vialHolder];
-  if (hand) hand.held = null;
+  if (vialHolder === 'mouse') {
+    physics.release(vialLin, vialAng);
+  } else {
+    const hand = hands[vialHolder];
+    if (hand) {
+      hand.held = null;
+      hand.holdMode = null;
+    }
+    physics.endGrip(); // keeps the velocity the vial has: it drops, tips, rolls or breaks
+  }
   vialHolder = null;
   tilt = 0;
   vialTrackValid = false;
-  // no snapping upright: the vial falls, tips, rolls or breaks like any loose object
-  physics.release(vialLin, vialAng);
+  gripTrackValid = false;
+}
+
+// The vial slipped out of the hand (grip too weak for the weight and motion, or pulled too far away).
+function loseVial(hand) {
+  physics.endGrip();
+  hand.held = null;
+  hand.holdMode = null;
+  vialHolder = null;
+  gripTrackValid = false;
+  pulse(hand, 0.6, 90);
 }
 
 function releaseMatch() {
@@ -315,7 +376,7 @@ function releaseMatch() {
   matchHolder = null;
   if (state.match) { // a loose match falls from the hand
     const group = new THREE.Group();
-    group.add(new THREE.Mesh(toGeometry(matchModel(state.match.lit > 0), VOXEL), material));
+    group.add(new THREE.Mesh(toGeometry(matchModel(state.match.lit > 0, state.match.broken), VOXEL), material));
     group.children[0].position.y = -MATCH_BODY_HALF_Y;
     world.add(group);
     tmp.set(0, MATCH_BODY_HALF_Y, 0).applyQuaternion(matchMesh.quaternion).add(matchMesh.position);
@@ -324,22 +385,43 @@ function releaseMatch() {
   dropMatch(state);
 }
 
-function tryGrabVial(hand) {
-  palmLocal(hand, palm);
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
+
+// Take the vial with a full hand (palm on it) or a pinch (fingertips on it). How well it is held depends on
+// how much of the vial is in the hand: a grab at the edge or over the end of the vial is weak and slips.
+function tryGrabVial(hand, mode) {
+  if (vialHolder !== null || state.vialBroken) return false;
+  const point = mode === 'fist' ? palmLocal(hand, palm) : tipLocal(hand, tip);
   const a = vialPos.clone().addScaledVector(vialUp, -VIAL_HALF);
   const b = vialPos.clone().addScaledVector(vialUp, VIAL_HALF);
-  if (vialHolder !== null || state.vialBroken || distanceToSegment(palm, a, b) > VIAL_GRAB_RADIUS) return;
-  takeVial();
+  const d = distanceToSegment(point, a, b);
+  if (d > VIAL_GRAB_RADIUS) return false;
+  const axial = point.clone().sub(vialPos).dot(vialUp);
+  let contact = 1 - 0.6 * Math.min(1, d / VIAL_GRAB_RADIUS); // off the axis: only the edge is caught
+  if (mode === 'fist') contact *= clamp01((VIAL_HALF - Math.abs(axial) + 0.035) / 0.07); // palm over the end: half in the hand
+
   vialHolder = hand.index;
   hand.held = 'vial';
-  // settle from where the vial was into a natural hold: standing through the fist, thumb side up,
-  // centered in the palm, liquid window toward the player
+  hand.holdMode = mode;
+  hand.grab.axial = Math.max(-VIAL_HALF, Math.min(VIAL_HALF, axial));
+  hand.grab.t0 = clock.elapsedTime;
+  gripTrackValid = false;
+  // the vial's pose relative to the hand at the moment of grabbing
   mat.compose(vialPos, vialQuat, ONE).premultiply(world.matrixWorld);
   mat.premultiply(hand.grip.matrixWorld.clone().invert()).decompose(hand.grab.fromPos, hand.grab.fromQuat, scaleTmp);
-  hand.grab.toPos.set(0, 0, -PALM_Z);
-  hand.grab.toQuat.identity();
-  hand.grab.t0 = clock.elapsedTime;
+  if (mode === 'fist') {
+    // settles into a natural hold: standing through the fist, thumb side up, centered in the palm
+    hand.grab.toPos.set(0, 0, -PALM_Z);
+    hand.grab.toQuat.identity();
+    physics.startGrip('fist', vialPos, contact);
+  } else {
+    // a pinch keeps the orientation it had and pivots between the fingertips
+    hand.grab.toPos.copy(hand.grab.fromPos);
+    hand.grab.toQuat.copy(hand.grab.fromQuat);
+    physics.startGrip('pinch', point, contact);
+  }
   pulse(hand, 0.3, 20);
+  return true;
 }
 
 function tryPinch(hand) {
@@ -354,32 +436,32 @@ function tryPinch(hand) {
   }
 }
 
-function updateGrips(dt) {
+function updateGrips() {
   for (const hand of hands) {
     const { pinch, squeeze } = analog(hand);
-    showGrip(hand, pinch, squeeze);
-    hand.holdBlend += ((hand.held === 'vial' ? 1 : 0) - hand.holdBlend) * Math.min(1, dt * 10);
-    hand.model.setHold(hand.holdBlend);
+    showGrip(hand, pinch);
 
     if (!hand.squeezeOn && squeeze >= CFG.SQUEEZE_ON) {
       hand.squeezeOn = true;
-      if (!hand.held) tryGrabVial(hand);
+      if (!hand.held) tryGrabVial(hand, 'fist');
     } else if (hand.squeezeOn && squeeze < CFG.SQUEEZE_OFF) {
       hand.squeezeOn = false;
-      if (hand.held === 'vial') releaseVial();
+      if (hand.held === 'vial' && hand.holdMode === 'fist') releaseVial();
     }
 
     if (!hand.pinchOn && pinch >= CFG.PINCH_ON) {
       hand.pinchOn = true;
-      if (!hand.held) tryPinch(hand);
+      if (!hand.held && !tryGrabVial(hand, 'pinch')) tryPinch(hand);
     } else if (hand.pinchOn && pinch < CFG.PINCH_OFF) {
       hand.pinchOn = false;
-      if (hand.held === 'match') releaseMatch();
+      if (hand.held === 'vial' && hand.holdMode === 'pinch') releaseVial();
+      else if (hand.held === 'match') releaseMatch();
     }
   }
 }
 
 hands = setupVR(renderer, scene);
+for (const hand of hands) world.add(hand.fist.group, hand.pinchGrip.group);
 
 // --- desktop fallback: mouse ---
 const pointer = new THREE.Vector2();
@@ -419,7 +501,7 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
       matchPos.set(p.x, MATCH_Y, p.z);
     }
   } else if (vialHolder === null && !state.vialBroken) {
-    takeVial();
+    holdWithMouse();
     vialHolder = 'mouse';
     vialPos.y = HOLD_Y;
     const p = pointOn(holdPlane);
@@ -494,12 +576,17 @@ function refresh(name, key, mesh, build) {
 // Pose of what is held, from the hands (VR) or the mouse. A free vial gets its pose from the physics instead.
 function updatePoses() {
   for (const hand of hands) {
-    if (hand.held === 'vial') {
-      const g = hand.grab;
+    if (hand.held !== 'vial') continue;
+    const g = hand.grab;
+    if (hand.holdMode === 'fist') {
       const t = Math.min(1, (clock.elapsedTime - g.t0) / HOLD_SNAP_TIME);
       const e = t * t * (3 - 2 * t);
       mat.compose(handPos.lerpVectors(g.fromPos, g.toPos, e), handQuat.slerpQuaternions(g.fromQuat, g.toQuat, e), ONE);
-      mat.premultiply(hand.grip.matrixWorld).premultiply(worldInv).decompose(vialPos, vialQuat, scaleTmp);
+      mat.premultiply(hand.grip.matrixWorld).premultiply(worldInv).decompose(gripPos, gripQuat, scaleTmp);
+    } else {
+      tipLocal(hand, gripPos); // the fingertips pull the pinched point along
+      mat.copy(hand.grip.matrixWorld).premultiply(worldInv).decompose(handPos, handQuat, scaleTmp);
+      gripQuat.copy(handQuat).multiply(g.fromQuat);
     }
   }
   if (vialHolder === 'mouse') {
@@ -529,12 +616,11 @@ function updateMatch(dt) {
   const hand = matchHolder === 'mouse' ? null : hands[matchHolder];
   if (prevHeadValid) {
     headVel.lerp(tmp.subVectors(head, prevHead).divideScalar(dt), 0.5).clampLength(0, 5);
-    const speed = Math.hypot(head.x - prevHead.x, head.z - prevHead.z) / dt;
+    const dist = Math.hypot(head.x - prevHead.x, head.z - prevHead.z);
     const onBox = Math.abs(head.x - BOX.x) <= BOX_HALF.x && Math.abs(head.z - BOX.z) <= BOX_HALF.z && head.y >= STRIKER_Y[0] && head.y <= STRIKER_Y[1];
-    if (onBox && speed >= CFG.STRIKE_SPEED && state.match.lit === 0) {
-      strikeMatch(state);
-      if (hand) pulse(hand, 0.7, 50);
-    }
+    const result = strokeMatch(state, onBox, dist / dt, dist);
+    if (hand && result === 'lit') pulse(hand, 0.7, 50);
+    else if (hand && result === 'broken') pulse(hand, 1, 120);
   }
   prevHead.copy(head);
   prevHeadValid = true;
@@ -548,10 +634,10 @@ function statusLines() {
   const c = state.crucible;
   return [
     `candle ${state.candleLit ? 'LIT' : 'out'}  matches ${state.matches}` +
-      (state.match ? `  in hand: ${state.match.lit > 0 ? `lit ${state.match.lit.toFixed(1)}s` : 'unlit'}` : ''),
+      (state.match ? `  in hand: ${state.match.broken ? 'head broke off' : state.match.lit > 0 ? `lit ${state.match.lit.toFixed(1)}s` : 'unlit'}` : ''),
     state.vialBroken
-      ? `vial BROKEN (R or B/Y resets)  wasted ${state.wasted.toFixed(2)}`
-      : `vial ${state.vial.fill.toFixed(2)} pours from ${Math.round((pourStartAngle(state.vial.fill) * 180) / Math.PI)} deg  wasted ${state.wasted.toFixed(2)}`,
+      ? `vial BROKEN (R or B/Y resets)  mess ${puddles.total().toFixed(2)}`
+      : `vial ${state.vial.fill.toFixed(2)} pours from ${Math.round((pourStartAngle(state.vial.fill) * 180) / Math.PI)} deg  wasted ${state.wasted.toFixed(2)} (on the table ${puddles.total().toFixed(2)})`,
     `crucible: ${c.content}  Hg ${c.mercury.toFixed(2)} (window ${CFG.DOSE_MIN}-${CFG.DOSE_MAX})`,
     `temp ${c.temp.toFixed(2)} (melt ${CFG.MELT} / burn ${CFG.BURN})` + (c.quality !== null ? `  quality ${c.quality.toFixed(2)}` : ''),
   ];
@@ -564,20 +650,49 @@ renderer.setAnimationLoop(() => {
   const time = clock.elapsedTime;
 
   for (const hand of hands) if (resetPressed(hand)) reset();
-  updateGrips(dt);
+  updateGrips();
   updatePoses();
 
-  // physics: a held vial follows the hand, a free one is a rigid body
-  if (vialHolder !== null) {
+  // physics: the mouse holds the vial rigidly; a hand holds it with a force-limited grip
+  if (vialHolder === 'mouse') {
     physics.setPose(vialPos, vialQuat);
     trackVialMotion(dt);
+  } else if (vialHolder !== null) {
+    const hand = hands[vialHolder];
+    const { pinch, squeeze } = analog(hand);
+    trackGrip(dt);
+    physics.setGrip(gripPos, gripVel, gripQuat, clamp01(((hand.holdMode === 'fist' ? squeeze : pinch) - 0.3) / 0.7));
   }
   physics.step(dt);
-  if (vialHolder === null && physics.isAlive()) physics.readPose(vialPos, vialQuat);
+  if (typeof vialHolder === 'number') {
+    const hand = hands[vialHolder];
+    if (!physics.isAlive()) { // it broke in the hand
+      hand.held = null;
+      hand.holdMode = null;
+      vialHolder = null;
+    } else if (physics.gripSeparation() > GRIP[hand.holdMode].lose) {
+      loseVial(hand);
+    }
+  }
+  if (vialHolder !== 'mouse' && physics.isAlive()) physics.readPose(vialPos, vialQuat);
   vialUp.copy(UP).applyQuaternion(vialQuat);
   vialGroup.position.copy(vialPos);
   vialGroup.quaternion.copy(vialQuat);
   vialGroup.visible = !state.vialBroken;
+  for (const hand of hands) { // the hand that holds the vial is drawn on the vial itself
+    const holding = hand.held === 'vial';
+    hand.model.group.visible = !holding;
+    hand.fist.group.visible = holding && hand.holdMode === 'fist';
+    hand.pinchGrip.group.visible = holding && hand.holdMode === 'pinch';
+    if (!holding) continue;
+    world.worldToLocal(tmp.setFromMatrixPosition(hand.grip.matrixWorld));
+    if (hand.holdMode === 'fist') {
+      hand.fist.place(handPos.copy(vialPos).addScaledVector(vialUp, hand.grab.axial), vialUp, tmp);
+    } else {
+      physics.gripAnchor(handPos);
+      hand.pinchGrip.place(handPos, vialUp, tmp);
+    }
+  }
   for (const entry of physics.debris) {
     entry.data.position.set(entry.body.position.x, entry.body.position.y, entry.body.position.z);
     entry.data.quaternion.set(entry.body.quaternion.x, entry.body.quaternion.y, entry.body.quaternion.z, entry.body.quaternion.w);
@@ -602,9 +717,20 @@ renderer.setAnimationLoop(() => {
     pourAccum -= CFG.DROP_AMOUNT;
     spawnDrop(drops, lip, spillVelocity(vialUp, state.flow / CFG.POUR_MAX_RATE, lipVel), CFG.DROP_AMOUNT);
   }
-  stepDrops(drops, dt, TARGET, (amount, where) => {
-    if (where === 'crucible') landMercury(state, amount);
-    else state.wasted += amount; // splashed off the rim or fell on the table
+  stepDrops(drops, dt, TARGET, (amount, where, x, z) => {
+    if (where === 'crucible') {
+      landMercury(state, amount);
+      return;
+    }
+    state.wasted += amount; // splashed off the rim or fell on the table
+    let px = x;
+    let pz = z;
+    if (where === 'rim') { // splashes outward and lands beside the stand
+      const d = Math.hypot(x - TARGET.cx, z - TARGET.cz) || 1;
+      px = TARGET.cx + ((x - TARGET.cx) / d) * 0.06;
+      pz = TARGET.cz + ((z - TARGET.cz) / d) * 0.06;
+    }
+    puddles.add(px, pz, amount); // stays where it fell
   });
 
   step(state, dt);
@@ -623,7 +749,8 @@ renderer.setAnimationLoop(() => {
   matchMesh.visible = !!state.match;
   if (state.match) {
     const lit = state.match.lit > 0;
-    refresh('match', lit, matchMesh, () => matchModel(lit));
+    const broken = state.match.broken;
+    refresh('match', `${lit}|${broken}`, matchMesh, () => matchModel(lit, broken));
   }
   refresh('box', state.matches, boxMesh, () => matchboxModel(state.matches));
   const flame = state.candleLit ? Math.floor(time * 8) % FLAME_FRAMES : -1;
@@ -638,6 +765,7 @@ renderer.setAnimationLoop(() => {
   holdGood.userData.set(0, q((state.progress.amalgam || 0) / CFG.AMALGAM_HOLD));
   holdBad.userData.set(0, q((state.progress.burn || 0) / CFG.BURN_HOLD));
 
+  updatePuddleMesh();
   drops.forEach((d, i) => {
     matrix.setPosition(snap(d.x), snap(d.y), snap(d.z));
     stream.setMatrixAt(i, matrix);

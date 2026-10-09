@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createState, step, pour, pourStartAngle, breakVial, landMercury, amalgamQuality, takeMatch, strikeMatch, lightCandle, snuffCandle, dropMatch } from '../src/game/sim.js';
+import { createState, step, pour, pourStartAngle, breakVial, landMercury, amalgamQuality, takeMatch, strikeMatch, strokeMatch, lightCandle, snuffCandle, dropMatch } from '../src/game/sim.js';
 import { CFG } from '../src/game/config.js';
 import { tiltDirection, vialLip, tiltAngle, distanceToSegment, VIAL_HALF } from '../src/game/geometry.js';
 import { crucibleContents, crucibleModel, standModel, vialModel, vialLayers, matchboxModel } from '../src/assets.js';
@@ -190,4 +190,28 @@ test('a broken vial hands its mercury to the caller and stops pouring', () => {
   assert.equal(s.vial.fill, 0);
   assert.equal(s.vialBroken, true);
   assert.equal(pour(s, 1, Math.PI), 0);
+});
+
+test('a match lights only with a fast stroke along the striker', () => {
+  const s = createState();
+  takeMatch(s);
+  assert.equal(strokeMatch(s, true, CFG.STRIKE_SPEED * 0.5, 0.05), null, 'slow scraping does nothing');
+  assert.equal(s.match.lit, 0);
+  assert.equal(strokeMatch(s, false, 2, 0.05), null, 'off the striker does nothing');
+  assert.equal(strokeMatch(s, true, 2, 0.015), null, 'short so far');
+  assert.equal(strokeMatch(s, true, CFG.STRIKE_SPEED * 0.5, 0.015), null, 'slowing down resets the stroke');
+  assert.equal(s.match.stroke, 0);
+  assert.equal(strokeMatch(s, true, 2, 0.02), null);
+  assert.equal(strokeMatch(s, true, 2, 0.02), 'lit');
+  assert.equal(s.match.lit, CFG.MATCH_BURN);
+});
+
+test('a stroke that is far too fast snaps the match head off for good', () => {
+  const s = createState();
+  takeMatch(s);
+  assert.equal(strokeMatch(s, true, CFG.STRIKE_MAX + 1, 0.02), 'broken');
+  assert.equal(s.match.broken, true);
+  assert.equal(strokeMatch(s, true, 2, 0.1), null);
+  strikeMatch(s);
+  assert.equal(s.match.lit, 0);
 });
