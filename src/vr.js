@@ -1,17 +1,10 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { createHand, TIP_Z, PALM_Z } from './hand.js';
 
-// Interaction points in the grip space (-Z is forward out of the controller). Both are unverified for
-// Quest controllers: if the spheres sit off the real controller, tune them.
-export const TIP_Z = 0.08; // pinch point, where the index finger would be
-export const PALM_Z = 0.02; // center of the closed hand
+export { TIP_Z, PALM_Z };
 
-const tipGeometry = new THREE.SphereGeometry(0.006, 12, 8);
 const palmGeometry = new THREE.SphereGeometry(0.025, 12, 8);
-const bodyGeometry = new THREE.BoxGeometry(0.035, 0.035, 0.12);
-const bodyMaterial = new THREE.MeshBasicMaterial({ color: 0x555a60 });
-const IDLE_TIP = new THREE.Color(0xffd54f);
-const ACTIVE_TIP = new THREE.Color(0xe53935);
 const IDLE_PALM = new THREE.Color(0x777b80);
 const ACTIVE_PALM = new THREE.Color(0x4caf50);
 
@@ -27,19 +20,15 @@ export function setupVR(renderer, scene) {
     const grip = renderer.xr.getControllerGrip(index);
     scene.add(controller, grip);
 
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.z = -0.02;
-    const tipMaterial = new THREE.MeshBasicMaterial({ color: IDLE_TIP });
-    const tip = new THREE.Mesh(tipGeometry, tipMaterial);
-    tip.position.z = -TIP_Z;
+    const model = createHand();
     const palmMaterial = new THREE.MeshBasicMaterial({ color: IDLE_PALM, wireframe: true });
     const palm = new THREE.Mesh(palmGeometry, palmMaterial);
     palm.position.z = -PALM_Z;
-    grip.add(body, tip, palm);
+    grip.add(model.group, palm);
 
     const hand = {
       index, grip, gamepad: null, held: null, offset: null,
-      pinchOn: false, squeezeOn: false, resetWasPressed: false, tipMaterial, palmMaterial,
+      pinchOn: false, squeezeOn: false, resetWasPressed: false, model, palmMaterial,
     };
     controller.addEventListener('connected', (e) => { hand.gamepad = e.data.gamepad; });
     controller.addEventListener('disconnected', () => { hand.gamepad = null; });
@@ -63,9 +52,9 @@ export function analog(hand) {
   return { pinch: b?.[0]?.value ?? 0, squeeze: b?.[1]?.value ?? 0 };
 }
 
-// Visual feedback: the tip turns red while pinching, the palm sphere green while gripping.
+// Visual feedback: the hand closes with the finger values; the grab zone (palm sphere) turns green while gripping.
 export function showGrip(hand, pinch, squeeze) {
-  hand.tipMaterial.color.copy(IDLE_TIP).lerp(ACTIVE_TIP, pinch);
+  hand.model.update(pinch, squeeze);
   hand.palmMaterial.color.copy(IDLE_PALM).lerp(ACTIVE_PALM, squeeze);
 }
 
