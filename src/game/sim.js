@@ -9,6 +9,7 @@ export function createState() {
     crucible: { content: 'lead', temp: 0, mercury: 0, quality: null },
     progress: {}, // reaction id -> seconds the condition has held
     wasted: 0,
+    vialBroken: false,
     candleLit: false,
     matches: CFG.MATCHES, // left in the box
     match: null, // match in hand: { lit: seconds left burning, 0 = unlit }
@@ -95,6 +96,15 @@ export function pour(s, dt, angle) {
   const poured = Math.min(vial.fill, s.flow * dt);
   vial.fill -= poured;
   return poured;
+}
+
+// The vial broke: its mercury is gone from the vial (the caller spills it as drops). Returns the amount.
+export function breakVial(s) {
+  const spilled = s.vial.fill;
+  s.vial.fill = 0;
+  s.vialBroken = true;
+  s.flow = 0;
+  return spilled;
 }
 
 // A drop of mercury reached the crucible mouth. Only liquid lead takes it; otherwise it beads off.

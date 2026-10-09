@@ -1,14 +1,17 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { toGeometry } from './voxel-mesh.js';
-import { createState, step, pour, pourStartAngle, landMercury, takeMatch, strikeMatch, dropMatch, lightCandle, snuffCandle } from './game/sim.js';
+import {
+  createState, step, pour, pourStartAngle, landMercury, breakVial, takeMatch, strikeMatch, dropMatch, lightCandle, snuffCandle,
+} from './game/sim.js';
 import { spillVelocity, spawnDrop, stepDrops, MAX_DROPS } from './game/drops.js';
 import { CFG } from './game/config.js';
 import { tiltDirection, vialLip, tiltAngle, distanceToSegment, VIAL_HALF } from './game/geometry.js';
 import {
   vialModel, vialLayers, crucibleModel, crucibleContents, standModel, FLAME_FRAMES, matchModel, matchboxModel,
 } from './assets.js';
-import { setupVR, tipWorld, palmWorld, analog, showGrip, pulse, resetPressed, TIP_Z } from './vr.js';
+import { setupVR, tipWorld, palmWorld, analog, showGrip, pulse, resetPressed, TIP_Z, PALM_Z } from './vr.js';
+import { createPhysics } from './physics.js';
 
 const VOXEL = 0.01; // 1 voxel = 1 cm
 
@@ -17,9 +20,12 @@ const VOXEL = 0.01; // 1 voxel = 1 cm
 const TABLE = { w: 2, d: 1, h: 0.85, z: -0.65 };
 const WORLD_ORIGIN = new THREE.Vector3(0, TABLE.h, -0.45);
 // table extent in world-local coordinates
-const TABLE_X = TABLE.w / 2 - 0.05;
-const TABLE_Z0 = TABLE.z - WORLD_ORIGIN.z - TABLE.d / 2 + 0.05;
-const TABLE_Z1 = TABLE.z - WORLD_ORIGIN.z + TABLE.d / 2 - 0.05;
+const TABLE_BOUNDS = {
+  minX: -TABLE.w / 2,
+  maxX: TABLE.w / 2,
+  minZ: TABLE.z - WORLD_ORIGIN.z - TABLE.d / 2,
+  maxZ: TABLE.z - WORLD_ORIGIN.z + TABLE.d / 2,
+};
 
 // layout in world-local coordinates (meters, y up from the table top)
 const CRUCIBLE = new THREE.Vector3(0, 0.07, 0); // crucible origin (bottom center), sits on the stand
@@ -28,7 +34,7 @@ const CRUCIBLE_TOP = 0.14;
 const TARGET = { cx: 0, cz: 0, top: CRUCIBLE_TOP, mouth: 0.035, rim: 0.047 };
 const WICK = new THREE.Vector3(0, 0.045, 0);
 const WICK_RADIUS = 0.035; // lit match head this close to the wick lights the candle
-const SNUFF_RADIUS = 0.05; // trigger with the tip this close to the wick snuffs the candle
+const SNUFF_RADIUS = 0.05; // pinch with the tip this close to the wick snuffs the candle
 const VIAL_REST = new THREE.Vector3(0.22, VIAL_HALF, 0.08);
 const BOX = new THREE.Vector3(-0.18, 0, 0.07); // matchbox origin (bottom center), footprint 6 x 4 cm
 const BOX_HALF = { x: 0.03, z: 0.02 };
@@ -38,6 +44,8 @@ const STRIKER_Y = [0.02, 0.065]; // head height band above the striker (top at 0
 const VIAL_GRAB_RADIUS = 0.03; // palm (closed hand) to the vial's axis
 const MATCH_HEAD_DY = 0.045; // head center above the match model's bottom
 const MATCH_PINCH_DY = 0.01; // the fingers hold the match this far above its bottom
+const MATCH_BODY_HALF_Y = 0.025; // physics half height of a dropped match
+const HOLD_SNAP_TIME = 0.15; // s, the vial settles into the natural hold
 const MAX_TILT = THREE.MathUtils.degToRad(130); // mouse: Shift + drag range
 
 // desktop fallback
@@ -54,8 +62,7 @@ document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x202428);
-const floor = new THREE.GridHelper(4, 40, 0x555555, 0x333333);
-scene.add(floor);
+scene.add(new THREE.GridHelper(4, 40, 0x555555, 0x333333));
 
 // table: light grey top, darker sides and legs
 const topMaterial = new THREE.MeshBasicMaterial({ color: 0xd5d8dc });
@@ -142,7 +149,7 @@ hudCanvas.height = 320;
 const hudTexture = new THREE.CanvasTexture(hudCanvas);
 hudTexture.colorSpace = THREE.SRGBColorSpace;
 const hudPanel = new THREE.Mesh(new THREE.PlaneGeometry(0.64, 0.2), new THREE.MeshBasicMaterial({ map: hudTexture }));
-hudPanel.position.set(0, 0.3, TABLE_Z0 + 0.05);
+hudPanel.position.set(0, 0.3, TABLE_BOUNDS.minZ + 0.1);
 hudPanel.visible = false;
 world.add(hudPanel);
 let hudPanelAt = 0;
@@ -171,6 +178,7 @@ const vialUp = new THREE.Vector3(0, 1, 0);
 const matchPos = new THREE.Vector3(); // mouse only: bottom of the match
 const head = new THREE.Vector3(); // match head, world-local
 const prevHead = new THREE.Vector3();
+const headVel = new THREE.Vector3();
 let prevHeadValid = false;
 const grabOffset = new THREE.Vector2();
 const keys = new Map(); // remesh cache: part name -> key
@@ -180,10 +188,45 @@ const lip = new THREE.Vector3();
 const prevLip = new THREE.Vector3();
 const lipVel = new THREE.Vector3();
 let prevLipValid = false;
+// motion of the held vial, handed to the physics when it is let go
+const vialLin = new THREE.Vector3();
+const vialAng = new THREE.Vector3();
+const prevVialPos = new THREE.Vector3();
+const prevVialQuat = new THREE.Quaternion();
+let vialTrackValid = false;
 const mat = new THREE.Matrix4();
 const scaleTmp = new THREE.Vector3();
+const handPos = new THREE.Vector3();
+const handQuat = new THREE.Quaternion();
 const UP = new THREE.Vector3(0, 1, 0);
 const ONE = new THREE.Vector3(1, 1, 1);
+const tmp = new THREE.Vector3();
+const tmpQuat = new THREE.Quaternion();
+
+// --- physics: the vial and dropped matches are loose objects ---
+function onVialBreak(pos, vel) {
+  const spilled = breakVial(state);
+  const count = Math.round(spilled / CFG.DROP_AMOUNT);
+  for (let i = 0; i < count; i++) { // the mercury scatters
+    const angle = i * 2.399963; // golden angle: an even spread without randomness
+    const r = 0.2 + 0.8 * ((i * 0.618034) % 1);
+    const v = { x: vel.x * 0.3 + Math.cos(angle) * r * 0.9, y: 0.4 + 0.6 * r, z: vel.z * 0.3 + Math.sin(angle) * r * 0.9 };
+    if (!spawnDrop(drops, pos, v, CFG.DROP_AMOUNT)) state.wasted += CFG.DROP_AMOUNT;
+  }
+}
+function onDebrisGone(entry) {
+  world.remove(entry.data);
+  entry.data.children[0].geometry.dispose();
+}
+const physics = createPhysics({
+  table: TABLE_BOUNDS,
+  floorY: -TABLE.h,
+  stack: { x: 0, z: 0, h: CRUCIBLE_TOP, halfW: 0.045 },
+  matchbox: { x: BOX_CENTER.x, y: BOX_CENTER.y, z: BOX_CENTER.z, hx: BOX_HALF.x, hy: 0.015, hz: BOX_HALF.z },
+  vialRest: VIAL_REST,
+  onBreak: onVialBreak,
+  onDebrisGone,
+});
 
 function reset() {
   state = createState();
@@ -191,11 +234,13 @@ function reset() {
   matchHolder = null;
   tilt = 0;
   prevHeadValid = false;
+  prevLipValid = false;
+  vialTrackValid = false;
   drops.length = 0;
   pourAccum = 0;
-  prevLipValid = false;
   vialPos.copy(VIAL_REST);
   vialQuat.identity();
+  physics.reset();
   for (const hand of hands) {
     hand.held = null;
     hand.pinchOn = false;
@@ -227,18 +272,29 @@ function matchHeadLocal(hand, out) {
   return world.worldToLocal(out.copy(MATCH_HEAD_LOCAL).applyMatrix4(hand.grip.matrixWorld));
 }
 
-function placeOnTable(p) {
-  p.x = Math.min(TABLE_X, Math.max(-TABLE_X, p.x));
-  p.z = Math.min(TABLE_Z1, Math.max(TABLE_Z0, p.z));
-  // not inside the stand
-  const dx = p.x - CRUCIBLE.x;
-  const dz = p.z - CRUCIBLE.z;
-  const d = Math.hypot(dx, dz);
-  if (d < 0.07) {
-    const k = 0.07 / (d || 1);
-    p.x = CRUCIBLE.x + (d ? dx * k : 0.07);
-    p.z = CRUCIBLE.z + (d ? dz * k : 0);
+// Velocity of the held vial (smoothed), so a release throws, drops or sets it down like the hand moved.
+function trackVialMotion(dt) {
+  if (vialTrackValid && dt > 0) {
+    vialLin.lerp(tmp.subVectors(vialPos, prevVialPos).divideScalar(dt), 0.5).clampLength(0, 5);
+    tmpQuat.copy(prevVialQuat).invert().premultiply(vialQuat); // rotation since the last frame
+    if (tmpQuat.w < 0) tmpQuat.set(-tmpQuat.x, -tmpQuat.y, -tmpQuat.z, -tmpQuat.w);
+    const s = Math.sqrt(Math.max(0, 1 - tmpQuat.w * tmpQuat.w));
+    const angle = 2 * Math.acos(Math.min(1, tmpQuat.w));
+    tmp.set(tmpQuat.x, tmpQuat.y, tmpQuat.z).multiplyScalar(s > 1e-6 ? angle / s / dt : 0);
+    vialAng.lerp(tmp, 0.5).clampLength(0, 30);
+  } else {
+    vialLin.set(0, 0, 0);
+    vialAng.set(0, 0, 0);
   }
+  prevVialPos.copy(vialPos);
+  prevVialQuat.copy(vialQuat);
+  vialTrackValid = true;
+}
+
+function takeVial() {
+  vialHolder = null; // set by the caller
+  physics.hold();
+  vialTrackValid = false;
 }
 
 function releaseVial() {
@@ -247,9 +303,9 @@ function releaseVial() {
   if (hand) hand.held = null;
   vialHolder = null;
   tilt = 0;
-  vialQuat.identity(); // set down upright
-  vialPos.y = VIAL_HALF;
-  placeOnTable(vialPos);
+  vialTrackValid = false;
+  // no snapping upright: the vial falls, tips, rolls or breaks like any loose object
+  physics.release(vialLin, vialAng);
 }
 
 function releaseMatch() {
@@ -257,19 +313,32 @@ function releaseMatch() {
   const hand = hands[matchHolder];
   if (hand) hand.held = null;
   matchHolder = null;
-  dropMatch(state); // a dropped match is gone
+  if (state.match) { // a loose match falls from the hand
+    const group = new THREE.Group();
+    group.add(new THREE.Mesh(toGeometry(matchModel(state.match.lit > 0), VOXEL), material));
+    group.children[0].position.y = -MATCH_BODY_HALF_Y;
+    world.add(group);
+    tmp.set(0, MATCH_BODY_HALF_Y, 0).applyQuaternion(matchMesh.quaternion).add(matchMesh.position);
+    physics.addDebris(tmp, matchMesh.quaternion, headVel, group);
+  }
+  dropMatch(state);
 }
 
 function tryGrabVial(hand) {
   palmLocal(hand, palm);
   const a = vialPos.clone().addScaledVector(vialUp, -VIAL_HALF);
   const b = vialPos.clone().addScaledVector(vialUp, VIAL_HALF);
-  if (vialHolder !== null || distanceToSegment(palm, a, b) > VIAL_GRAB_RADIUS) return;
+  if (vialHolder !== null || state.vialBroken || distanceToSegment(palm, a, b) > VIAL_GRAB_RADIUS) return;
+  takeVial();
   vialHolder = hand.index;
   hand.held = 'vial';
-  // keep the pose of the vial relative to the hand: it pivots about where you took it
+  // settle from where the vial was into a natural hold: standing through the fist, thumb side up,
+  // centered in the palm, liquid window toward the player
   mat.compose(vialPos, vialQuat, ONE).premultiply(world.matrixWorld);
-  hand.offset = hand.grip.matrixWorld.clone().invert().multiply(mat);
+  mat.premultiply(hand.grip.matrixWorld.clone().invert()).decompose(hand.grab.fromPos, hand.grab.fromQuat, scaleTmp);
+  hand.grab.toPos.set(0, 0, -PALM_Z);
+  hand.grab.toQuat.identity();
+  hand.grab.t0 = clock.elapsedTime;
   pulse(hand, 0.3, 20);
 }
 
@@ -285,10 +354,12 @@ function tryPinch(hand) {
   }
 }
 
-function updateGrips() {
+function updateGrips(dt) {
   for (const hand of hands) {
     const { pinch, squeeze } = analog(hand);
     showGrip(hand, pinch, squeeze);
+    hand.holdBlend += ((hand.held === 'vial' ? 1 : 0) - hand.holdBlend) * Math.min(1, dt * 10);
+    hand.model.setHold(hand.holdBlend);
 
     if (!hand.squeezeOn && squeeze >= CFG.SQUEEZE_ON) {
       hand.squeezeOn = true;
@@ -347,7 +418,8 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
       const p = pointOn(matchPlane);
       matchPos.set(p.x, MATCH_Y, p.z);
     }
-  } else if (vialHolder === null) {
+  } else if (vialHolder === null && !state.vialBroken) {
+    takeVial();
     vialHolder = 'mouse';
     vialPos.y = HOLD_Y;
     const p = pointOn(holdPlane);
@@ -419,21 +491,21 @@ function refresh(name, key, mesh, build) {
   remesh(mesh, build());
 }
 
-// Pose of everything that is held, from the hands (VR) or the mouse.
+// Pose of what is held, from the hands (VR) or the mouse. A free vial gets its pose from the physics instead.
 function updatePoses() {
   for (const hand of hands) {
     if (hand.held === 'vial') {
-      mat.copy(hand.grip.matrixWorld).multiply(hand.offset).premultiply(worldInv);
-      mat.decompose(vialPos, vialQuat, scaleTmp);
+      const g = hand.grab;
+      const t = Math.min(1, (clock.elapsedTime - g.t0) / HOLD_SNAP_TIME);
+      const e = t * t * (3 - 2 * t);
+      mat.compose(handPos.lerpVectors(g.fromPos, g.toPos, e), handQuat.slerpQuaternions(g.fromQuat, g.toQuat, e), ONE);
+      mat.premultiply(hand.grip.matrixWorld).premultiply(worldInv).decompose(vialPos, vialQuat, scaleTmp);
     }
   }
   if (vialHolder === 'mouse') {
     const dir = tiltDirection(vialPos, CRUCIBLE);
     vialQuat.setFromAxisAngle(new THREE.Vector3().crossVectors(UP, new THREE.Vector3(dir.x, 0, dir.z)), tilt * MAX_TILT);
   }
-  vialUp.copy(UP).applyQuaternion(vialQuat);
-  vialGroup.position.copy(vialPos);
-  vialGroup.quaternion.copy(vialQuat);
 
   if (matchHolder === 'mouse') {
     matchMesh.position.copy(matchPos);
@@ -451,10 +523,12 @@ function updatePoses() {
 function updateMatch(dt) {
   if (matchHolder === null || !state.match) {
     prevHeadValid = false;
+    headVel.set(0, 0, 0);
     return;
   }
   const hand = matchHolder === 'mouse' ? null : hands[matchHolder];
   if (prevHeadValid) {
+    headVel.lerp(tmp.subVectors(head, prevHead).divideScalar(dt), 0.5).clampLength(0, 5);
     const speed = Math.hypot(head.x - prevHead.x, head.z - prevHead.z) / dt;
     const onBox = Math.abs(head.x - BOX.x) <= BOX_HALF.x && Math.abs(head.z - BOX.z) <= BOX_HALF.z && head.y >= STRIKER_Y[0] && head.y <= STRIKER_Y[1];
     if (onBox && speed >= CFG.STRIKE_SPEED && state.match.lit === 0) {
@@ -475,7 +549,9 @@ function statusLines() {
   return [
     `candle ${state.candleLit ? 'LIT' : 'out'}  matches ${state.matches}` +
       (state.match ? `  in hand: ${state.match.lit > 0 ? `lit ${state.match.lit.toFixed(1)}s` : 'unlit'}` : ''),
-    `vial ${state.vial.fill.toFixed(2)} pours from ${Math.round((pourStartAngle(state.vial.fill) * 180) / Math.PI)} deg  wasted ${state.wasted.toFixed(2)}`,
+    state.vialBroken
+      ? `vial BROKEN (R or B/Y resets)  wasted ${state.wasted.toFixed(2)}`
+      : `vial ${state.vial.fill.toFixed(2)} pours from ${Math.round((pourStartAngle(state.vial.fill) * 180) / Math.PI)} deg  wasted ${state.wasted.toFixed(2)}`,
     `crucible: ${c.content}  Hg ${c.mercury.toFixed(2)} (window ${CFG.DOSE_MIN}-${CFG.DOSE_MAX})`,
     `temp ${c.temp.toFixed(2)} (melt ${CFG.MELT} / burn ${CFG.BURN})` + (c.quality !== null ? `  quality ${c.quality.toFixed(2)}` : ''),
   ];
@@ -488,22 +564,39 @@ renderer.setAnimationLoop(() => {
   const time = clock.elapsedTime;
 
   for (const hand of hands) if (resetPressed(hand)) reset();
-  updateGrips();
-
+  updateGrips(dt);
   updatePoses();
+
+  // physics: a held vial follows the hand, a free one is a rigid body
+  if (vialHolder !== null) {
+    physics.setPose(vialPos, vialQuat);
+    trackVialMotion(dt);
+  }
+  physics.step(dt);
+  if (vialHolder === null && physics.isAlive()) physics.readPose(vialPos, vialQuat);
+  vialUp.copy(UP).applyQuaternion(vialQuat);
+  vialGroup.position.copy(vialPos);
+  vialGroup.quaternion.copy(vialQuat);
+  vialGroup.visible = !state.vialBroken;
+  for (const entry of physics.debris) {
+    entry.data.position.set(entry.body.position.x, entry.body.position.y, entry.body.position.z);
+    entry.data.quaternion.set(entry.body.quaternion.x, entry.body.quaternion.y, entry.body.quaternion.z, entry.body.quaternion.w);
+  }
+
   lip.copy(vialLip(vialPos, vialUp));
-  // lip velocity from hand motion, smoothed; the drops inherit it
-  if (vialHolder !== null && prevLipValid && dt > 0) {
-    lipVel.lerp(new THREE.Vector3().subVectors(lip, prevLip).divideScalar(dt).clampLength(0, 3), 0.4);
+  // lip velocity from motion, smoothed; the drops inherit it
+  if (prevLipValid && dt > 0) {
+    lipVel.lerp(tmp.subVectors(lip, prevLip).divideScalar(dt).clampLength(0, 4), 0.4);
   } else {
     lipVel.set(0, 0, 0);
   }
   prevLip.copy(lip);
-  prevLipValid = vialHolder !== null;
+  prevLipValid = true;
 
   if (dt > 0) updateMatch(dt);
 
-  const angle = vialHolder === null ? 0 : tiltAngle(vialUp);
+  // a vial pours whenever it is tilted far enough, held or not: one lying on its side leaks
+  const angle = state.vialBroken ? 0 : tiltAngle(vialUp);
   pourAccum += pour(state, dt, angle);
   while (pourAccum >= CFG.DROP_AMOUNT) {
     pourAccum -= CFG.DROP_AMOUNT;
@@ -561,7 +654,7 @@ renderer.setAnimationLoop(() => {
   } else {
     hud.textContent =
       `matchbox: click to take a match, rub it fast over the striker | light candle: lit match at the wick | snuff: click candle\n` +
-      `vial: drag with left mouse, Shift + drag up/down tilts | reset: R | orbit: drag empty space\n` +
+      `vial: drag with left mouse, Shift + drag up/down tilts, let go to drop it | reset: R | orbit: drag empty space\n` +
       `VR: grip button = full hand (vial), trigger = pinch (match, wick), B/Y = reset\n` +
       lines.join('\n');
     controls.update();

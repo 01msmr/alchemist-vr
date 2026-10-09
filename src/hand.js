@@ -11,6 +11,10 @@ const PAD_ACTIVE = new THREE.Color(0xe53935);
 const BONE = 0.012;
 const PAD = 0.016;
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
+// Fist around a held rod: the fingers curl about the hand's X axis, so the rod runs along X.
+// Rotating the hand by 90 degrees about Z turns that rod axis to the grip's +Y (thumb side up).
+const HOLD_ROTATION = new THREE.Quaternion().setFromAxisAngle(Z_AXIS, Math.PI / 2);
+const NO_ROTATION = new THREE.Quaternion();
 
 // Thumb sits on top (+y), index finger below (-y), like on a Touch controller. Both reach the pinch point.
 const TIP = new THREE.Vector3(0, 0, -TIP_Z);
@@ -72,5 +76,10 @@ export function createHand() {
   }
   update(0, 0);
 
-  return { group, update, indexTip, thumbTip, fingers };
+  // 0 = neutral hand, 1 = fist wrapped around an object standing along the grip's +Y
+  function setHold(t) {
+    group.quaternion.slerpQuaternions(NO_ROTATION, HOLD_ROTATION, t);
+  }
+
+  return { group, update, setHold, indexTip, thumbTip, fingers };
 }

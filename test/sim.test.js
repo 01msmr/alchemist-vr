@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createState, step, pour, pourStartAngle, landMercury, amalgamQuality, takeMatch, strikeMatch, lightCandle, snuffCandle, dropMatch } from '../src/game/sim.js';
+import { createState, step, pour, pourStartAngle, breakVial, landMercury, amalgamQuality, takeMatch, strikeMatch, lightCandle, snuffCandle, dropMatch } from '../src/game/sim.js';
 import { CFG } from '../src/game/config.js';
 import { tiltDirection, vialLip, tiltAngle, distanceToSegment, VIAL_HALF } from '../src/game/geometry.js';
 import { crucibleContents, crucibleModel, standModel, vialModel, vialLayers, matchboxModel } from '../src/assets.js';
@@ -182,4 +182,12 @@ test('matchbox shows one head per match left', () => {
   const heads = (o) => o.data.filter((v) => v === 18).length;
   assert.equal(heads(matchboxModel(3)), 3);
   assert.equal(heads(matchboxModel(0)), 0);
+});
+
+test('a broken vial hands its mercury to the caller and stops pouring', () => {
+  const s = createState();
+  assert.equal(breakVial(s), CFG.VIAL_CAPACITY);
+  assert.equal(s.vial.fill, 0);
+  assert.equal(s.vialBroken, true);
+  assert.equal(pour(s, 1, Math.PI), 0);
 });

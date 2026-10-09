@@ -9,7 +9,7 @@ const IDLE_PALM = new THREE.Color(0x777b80);
 const ACTIVE_PALM = new THREE.Color(0x4caf50);
 
 // Sets up the VR session button and two controllers. A hand is
-// { index, grip, gamepad, held, offset, pinchOn, squeezeOn, ... }; the grip state belongs to the game code.
+// { index, grip, gamepad, held, grab, pinchOn, squeezeOn, ... }; the grip state belongs to the game code.
 export function setupVR(renderer, scene) {
   renderer.xr.enabled = true;
   renderer.xr.setReferenceSpaceType('local-floor');
@@ -27,7 +27,9 @@ export function setupVR(renderer, scene) {
     grip.add(model.group, palm);
 
     const hand = {
-      index, grip, gamepad: null, held: null, offset: null,
+      index, grip, gamepad: null, held: null, holdBlend: 0,
+      // pose of the held vial relative to the hand: blends from where it was grabbed to the natural hold
+      grab: { fromPos: new THREE.Vector3(), fromQuat: new THREE.Quaternion(), toPos: new THREE.Vector3(), toQuat: new THREE.Quaternion(), t0: 0 },
       pinchOn: false, squeezeOn: false, resetWasPressed: false, model, palmMaterial,
     };
     controller.addEventListener('connected', (e) => { hand.gamepad = e.data.gamepad; });
