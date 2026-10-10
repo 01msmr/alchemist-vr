@@ -36,6 +36,8 @@ export function createHandInput(ctx) {
     hand.grab.axial = Math.max(-t.spec.axisHalf, Math.min(t.spec.axisHalf, tmp.copy(point).sub(t.pos).dot(t.up)));
     hand.grab.t0 = ctx.clock.elapsedTime;
     t.gripTrackValid = false;
+    t.fistFilter.pos.reset();
+    t.fistFilter.rot.reset();
     // the tool's pose relative to the hand at the moment of grabbing
     mat.compose(t.pos, t.quat, ONE).premultiply(view.world.matrixWorld);
     mat.premultiply(hand.grip.matrixWorld.clone().invert()).decompose(hand.grab.fromPos, hand.grab.fromQuat, scale);
@@ -109,6 +111,23 @@ export function createHandInput(ctx) {
   }
 
   return {
+    // Is this point (world-local) near anything a pinch could pick up or press? A pinch held still next to
+    // such a thing is a missed grab, not a calibration of the table.
+    nearThing(point) {
+      const away = INPUT.calibration.keepAway;
+      for (const t of ctx.tools.list) {
+        if (!t.active) continue;
+        const a = t.pos.clone().addScaledVector(t.up, -t.spec.axisHalf);
+        const b = t.pos.clone().addScaledVector(t.up, t.spec.axisHalf);
+        if (distanceToSegment(point, a, b) < t.spec.grabRadius + away) return true;
+      }
+      if (point.distanceTo(ctx.matches.boxCenter) < reach.matchbox + away) return true;
+      if (levelOf(ctx.state).scene.props.some((name) => PROPS[name].source && tmp.set(PROPS[name].source.center.x, PROPS[name].source.center.y, PROPS[name].source.center.z).distanceTo(point) < PROPS[name].source.reach + away)) return true;
+      if (point.distanceTo(wick) < reach.snuff + away) return true;
+      if (Math.hypot(point.x - c.x, point.z - c.z) < reach.nugget + away) return true;
+      return point.distanceTo(ctx.hud.panel.position) < reach.reset + away;
+    },
+
     update(dt) {
       for (const hand of ctx.hands) {
         const { pinch, squeeze } = analog(hand);

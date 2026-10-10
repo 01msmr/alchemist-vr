@@ -262,5 +262,10 @@ export function createPhysics(opts) {
     }
   }
 
-  return { world, tools, debris, addTool, addStaticBox, removeExtras, addDebris, clearDebris, reset, step };
+  // the floor under the table moves with the table's height
+  function setFloorY(y) {
+    floor.position.set(0, y, 0);
+  }
+
+  return { world, tools, debris, addTool, addStaticBox, removeExtras, addDebris, clearDebris, reset, step, setFloorY };
 }

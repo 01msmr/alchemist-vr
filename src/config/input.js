@@ -42,6 +42,15 @@ export const INPUT = {
   // release throws, drops or sets down like the hand moved
   motion: { smoothing: 0.5, maxSpeed: 5, maxSpin: 30, lipSmoothing: 0.4, lipMaxSpeed: 4 }, // m/s, rad/s
 
+  // Smoothing of the pose a fist wants a held tool at (One-Euro: calm while slow, quick while fast; cutoffs in Hz):
+  // tracked joints jitter, and the jitter would shake the tool. A pinch is not filtered: it needs precision.
+  filter: {
+    fist: {
+      pos: { minCutoff: 1.5, beta: 6, dCutoff: 1 }, // beta: extra cutoff per m/s
+      rot: { minCutoff: 1.2, beta: 0.8, dCutoff: 1 }, // beta: extra cutoff per rad/s
+    },
+  },
+
   // controller haptic pulses: strength 0..1 and duration in ms
   haptics: {
     grab: { strength: 0.3, ms: 20 },
@@ -52,6 +61,16 @@ export const INPUT = {
     snap: { strength: 1, ms: 120 }, // the match head snaps off
     candle: { strength: 0.8, ms: 80 }, // the candle lights
     pour: { base: 0.1, range: 0.5, ms: 60, every: 0.08 }, // strength grows with the flow; every = seconds between pulses
+  },
+
+  // setting the height of the real table: rest a fingertip on it and hold a pinch still
+  calibration: {
+    holdSeconds: 1,
+    maxSpeed: 0.03, // m/s: the fingertip must be this still
+    band: 0.25, // m above or below the current virtual table top where a touch counts
+    keepAway: 0.08, // m: not within this of anything you could pick up (a missed grab is not a calibration)
+    fingerThickness: 0.01, // m: the fingertip joint is this far above the surface it touches
+    storageKey: 'alchemist.tableHeight',
   },
 
   // desktop fallback

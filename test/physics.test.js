@@ -218,3 +218,125 @@ test('reset takes every tool out of the world', () => {
   assert.equal(physics.tool.isAlive(), false);
   assert.equal(rod.isAlive(), false);
 });
+
+test('the floor can be moved: an unbreakable tool off the table lands on the new floor', () => {
+  const { physics } = make();
+  const nugget = physics.addTool(TOOLS.nugget);
+  physics.setFloorY(-1.2);
+  nugget.spawn({ x: 1.5, y: 0.1, z: 0 }); // past the table's edge
+  run(physics, 3);
+  assert.ok(Math.abs(nugget.body.position.y - (-1.2 + TOOLS.nugget.half.y)) < 0.01, `at ${nugget.body.position.y}`);
+  physics.setFloorY(-0.5);
+  nugget.spawn({ x: 1.5, y: 0.1, z: 0 });
+  run(physics, 3);
+  assert.ok(Math.abs(nugget.body.position.y - (-0.5 + TOOLS.nugget.half.y)) < 0.01, 'and on the next one');
+});
+
+// ---- how steady a fist holds the vial under tracking noise ----
+import { createVecFilter, createQuatFilter } from '../src/filters.js';
+import { INPUT } from '../src/config/index.js';
+
+const noise = (i, k = 1) => Math.sin(i * 12.9898 * k) * 0.5 + Math.sin(i * 78.233 * k + 1.3) * 0.5;
+const quatOf = (angle, axis) => {
+  const n = Math.hypot(...axis);
+  const s = Math.sin(angle / 2) / n;
+  return { x: axis[0] * s, y: axis[1] * s, z: axis[2] * s, w: Math.cos(angle / 2) };
+};
+const std = (values) => {
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  return Math.sqrt(values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length);
+};
+
+// A fist holds the vial for `seconds` while the hand's pose jitters like tracked joints do. `filtered` runs the target
+// through the same filters the game uses. Returns how much the vial shook and whether the hold survived.
+function holdWithTrackingNoise({ filtered, seconds = 4, posNoise = 0.004, rotNoise = 0.05, contact = 1, moveAt = null }) {
+  const { physics } = make();
+  const vial = physics.tool;
+  const f = INPUT.filter.fist;
+  const pos = createVecFilter(f.pos);
+  const rot = createQuatFilter(f.rot);
+  const center = { x: 0.4, y: 0.4, z: 0 };
+  vial.spawn(center);
+  vial.startGrip('fist', center, contact);
+  const dt = 1 / 72;
+  const xs = [];
+  const ys = [];
+  const tilt = [];
+  let lost = false;
+  const n = Math.round(seconds / dt);
+  for (let i = 0; i < n; i++) {
+    const shift = moveAt !== null && i * dt >= moveAt ? Math.min(0.2, (i * dt - moveAt) * 0.4) : 0; // a deliberate move of 20 cm
+    let p = { x: center.x + shift + posNoise * noise(i), y: center.y + posNoise * noise(i, 2), z: center.z + posNoise * noise(i, 3) };
+    let q = quatOf(rotNoise * noise(i, 4), [noise(i, 5) + 2, noise(i, 6), noise(i, 7)]);
+    if (filtered) {
+      p = pos.filter(p, dt);
+      q = rot.filter(q, dt);
+    }
+    vial.setGrip(p, { x: 0, y: 0, z: 0 }, q, 1);
+    physics.step(dt);
+    if (vial.gripSeparation() > PHYSICS.grip.fist.lose) lost = true;
+    if (i * dt > seconds / 2) {
+      xs.push(vial.body.position.x);
+      ys.push(vial.body.position.y);
+      const up = vial.body.quaternion.vmult(new vial.body.position.constructor(0, 1, 0));
+      tilt.push(Math.acos(Math.min(1, up.y)));
+    }
+  }
+  return { shake: Math.hypot(std(xs), std(ys)), tiltShake: std(tilt), lost, x: vial.body.position.x };
+}
+
+test('a fist holds the vial steadier with the filtered target than with the raw one', () => {
+  const raw = holdWithTrackingNoise({ filtered: false });
+  const smooth = holdWithTrackingNoise({ filtered: true });
+  assert.equal(smooth.lost, false);
+  assert.ok(smooth.shake < raw.shake * 0.7, `position shake ${raw.shake.toFixed(5)} -> ${smooth.shake.toFixed(5)}`);
+  assert.ok(smooth.tiltShake < raw.tiltShake * 0.7, `tilt shake ${raw.tiltShake.toFixed(4)} -> ${smooth.tiltShake.toFixed(4)}`);
+});
+
+test('the filtered fist still follows a deliberate move of the hand', () => {
+  const r = holdWithTrackingNoise({ filtered: true, seconds: 4, moveAt: 1 });
+  assert.equal(r.lost, false);
+  assert.ok(Math.abs(r.x - 0.6) < 0.02, `ended at x=${r.x.toFixed(3)}, the hand is at 0.6`);
+});
+
+// the hand moves the vial by (dx, dy) over `seconds`, eased, through the filter; returns the largest the grip stretched
+function moveWithHand(dx, dy, seconds) {
+  const { physics } = make();
+  const vial = physics.tool;
+  const f = INPUT.filter.fist;
+  const pos = createVecFilter(f.pos);
+  const rot = createQuatFilter(f.rot);
+  const center = { x: 0.4, y: 0.4, z: 0 };
+  vial.spawn(center);
+  vial.startGrip('fist', center, 1);
+  const dt = 1 / 72;
+  const vel = { x: 0, y: 0, z: 0 };
+  let prev = null;
+  let max = 0;
+  for (let i = 0; i < Math.round(3 / dt); i++) {
+    const t = i * dt;
+    const k = Math.min(1, Math.max(0, (t - 0.5) / seconds));
+    const ease = k * k * (3 - 2 * k);
+    const p = pos.filter({ x: center.x + dx * ease, y: center.y + dy * ease, z: center.z }, dt);
+    if (prev) for (const a of ['x', 'y', 'z']) vel[a] += ((p[a] - prev[a]) / dt - vel[a]) * INPUT.motion.smoothing;
+    prev = p;
+    vial.setGrip(p, vel, rot.filter({ x: 0, y: 0, z: 0, w: 1 }, dt), 1);
+    physics.step(dt);
+    max = Math.max(max, vial.gripSeparation());
+  }
+  return max;
+}
+
+test('a brisk move or lift does not make a firm fist let go', () => {
+  assert.ok(moveWithHand(0.4, 0, 0.3) < PHYSICS.grip.fist.lose, 'a 40 cm swing in 0.3 s');
+  assert.ok(moveWithHand(0, 0.3, 0.25) < PHYSICS.grip.fist.lose, 'a 30 cm lift in 0.25 s');
+});
+
+test('a very fast flick is more than a grip can accelerate: the vial is let go', () => {
+  assert.ok(moveWithHand(0.4, 0, 0.12) > PHYSICS.grip.fist.lose);
+});
+
+test('a half grab still slips even with the smoothing (the filters only calm noise)', () => {
+  const r = holdWithTrackingNoise({ filtered: true, contact: 0.3, posNoise: 0, rotNoise: 0, seconds: 2 });
+  assert.equal(r.lost, true);
+});

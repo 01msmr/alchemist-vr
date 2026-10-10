@@ -14,6 +14,10 @@ export function installTestHook(ctx) {
     tools: ctx.tools.tools,
     drops: ctx.drops,
     puddles: ctx.puddles,
+    setTableHeight: (h) => ctx.calibration.set(h),
+    get tableHeight() { return ctx.calibration.height; },
+    get worldY() { return ctx.view.world.position.y; },
+    get floorY() { return ctx.physics.world.bodies.find((b) => b.shapes[0]?.type === 2 /* plane */)?.position.y; },
     screenOf(name) {
       const where = {
         box: ctx.matches.boxCenter,

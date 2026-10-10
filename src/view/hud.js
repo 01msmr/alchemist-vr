@@ -55,7 +55,7 @@ export function createHud(view) {
 
 // The status lines: the generic ones, the level's own, the heat, and the fingers as the game sees them
 // (mode, pinch, grip) for tuning the recognition on the headset.
-export function statusLines(state, level, hands, puddleTotal) {
+export function statusLines(state, level, hands, puddleTotal, tableLine) {
   const c = state.crucible;
   const m = state.match;
   const matchText = m ? `  in hand: ${m.broken ? 'head broke off' : m.lit > 0 ? `lit ${m.lit.toFixed(1)}s` : 'unlit'}` : '';
@@ -64,5 +64,6 @@ export function statusLines(state, level, hands, puddleTotal) {
     ...level.status(state, { puddleTotal }),
     `temp ${c.temp.toFixed(2)} (melt ${CFG.MELT} / burn ${CFG.BURN})${c.quality !== null ? `  quality ${c.quality.toFixed(2)}` : ''}`,
     hands.map((h) => `${h.handedness[0].toUpperCase()}:${h.mode} p${h.pinch.toFixed(2)} g${h.squeeze.toFixed(2)}`).join('   '),
+    tableLine,
   ];
 }

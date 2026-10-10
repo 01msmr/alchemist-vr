@@ -35,6 +35,13 @@ test('windows and thresholds are in the right order', () => {
   assert.ok(PHYSICS.grip.fist.forceG > PHYSICS.grip.pinch.forceG, 'a fist holds stronger than a pinch');
 });
 
+test('the filter and calibration settings make sense', () => {
+  for (const f of [INPUT.filter.fist.pos, INPUT.filter.fist.rot]) assert.ok(f.minCutoff > 0 && f.beta >= 0 && f.dCutoff > 0);
+  assert.ok(LAYOUT.table.heightRange[0] < LAYOUT.table.h && LAYOUT.table.h < LAYOUT.table.heightRange[1], 'the default table height is plausible');
+  assert.ok(INPUT.calibration.holdSeconds > 0 && INPUT.calibration.maxSpeed > 0 && typeof INPUT.calibration.storageKey === 'string');
+  assert.ok(INPUT.calibration.keepAway > 0 && INPUT.calibration.band > 0);
+});
+
 test('every tool has what the physics and the hands need', () => {
   for (const [id, spec] of Object.entries(TOOLS)) {
     for (const key of ['half', 'mass', 'axisHalf', 'radius', 'grabRadius', 'snap']) assert.ok(key in spec, `${id}.${key}`);

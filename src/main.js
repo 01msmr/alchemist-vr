@@ -17,6 +17,7 @@ import { createStirring } from './runtime/stirring.js';
 import { createRunner } from './runtime/runner.js';
 import { createHandInput } from './runtime/hands.js';
 import { createMouse } from './runtime/mouse.js';
+import { createCalibration } from './runtime/calibration.js';
 import { installTestHook } from './testhook.js';
 
 // The composition: the pieces are built here and share one `ctx` (the world they live in); the loop at the end
@@ -56,6 +57,7 @@ ctx.runner = createRunner(ctx);
 ctx.handInput = createHandInput(ctx);
 ctx.mouse = createMouse(ctx); // before the controls: its pointerdown must run first
 createControls(view);
+ctx.calibration = createCalibration(ctx); // moves the table to the remembered height
 
 ctx.hands = setupVR(view.renderer, view.scene);
 for (const hand of ctx.hands) {
@@ -79,7 +81,8 @@ view.renderer.setAnimationLoop(() => {
 
   // input: what the hands and the mouse hold, and where
   ctx.handInput.update(dt);
-  tools.updateHandTargets();
+  ctx.calibration.update(dt);
+  tools.updateHandTargets(dt);
   ctx.mouse.updatePoses();
   matches.updatePose();
   tools.stepPhysics(dt);
@@ -121,7 +124,7 @@ view.renderer.setAnimationLoop(() => {
     entry.data.quaternion.set(entry.body.quaternion.x, entry.body.quaternion.y, entry.body.quaternion.z, entry.body.quaternion.w);
   }
 
-  ctx.hud.update(statusLines(state, level, ctx.hands, ctx.puddles.total()), time);
+  ctx.hud.update(statusLines(state, level, ctx.hands, ctx.puddles.total(), ctx.calibration.statusLine()), time);
   if (!view.renderer.xr.isPresenting) view.controls.update();
   view.renderer.render(view.scene, view.camera);
 });

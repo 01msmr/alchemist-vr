@@ -25,11 +25,13 @@ export function createScene() {
   const slab = new THREE.Mesh(new THREE.BoxGeometry(table.w, VIEW.table.thickness, table.d), [sideMaterial, sideMaterial, topMaterial, sideMaterial, sideMaterial, sideMaterial]);
   slab.position.set(0, table.h - VIEW.table.thickness / 2, table.z);
   scene.add(slab);
+  const legs = [];
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(VIEW.table.leg, table.h - VIEW.table.thickness, VIEW.table.leg), sideMaterial);
       leg.position.set(sx * (table.w / 2 - VIEW.table.legInset), (table.h - VIEW.table.thickness) / 2, table.z + sz * (table.d / 2 - VIEW.table.legInset));
       scene.add(leg);
+      legs.push(leg);
     }
   }
 
@@ -84,7 +86,24 @@ export function createScene() {
     props[name] = mesh;
   }
 
-  return { renderer, scene, camera, world, worldInv, material, part, remesh, refresh, meshes: { stand, crucible, box, match }, props, controls: null };
+  const view = { renderer, scene, camera, world, worldInv, material, part, remesh, refresh, meshes: { stand, crucible, box, match }, props, controls: null };
+
+  // The table top is at height h (m above the floor): everything on the table moves with it (the world group's
+  // origin is on the table top), and the desktop camera keeps its view of the table.
+  view.setTableHeight = (h) => {
+    const delta = h - world.position.y;
+    world.position.y = h;
+    world.updateMatrixWorld(true);
+    worldInv.copy(world.matrixWorld).invert();
+    slab.position.y = h - VIEW.table.thickness / 2;
+    for (const leg of legs) {
+      leg.scale.y = (h - VIEW.table.thickness) / (table.h - VIEW.table.thickness);
+      leg.position.y = (h - VIEW.table.thickness) / 2;
+    }
+    camera.position.y += delta;
+    if (view.controls) view.controls.target.y += delta;
+  };
+  return view;
 }
 
 // The desktop camera control. Created after the mouse handlers, so their pointerdown runs first and can

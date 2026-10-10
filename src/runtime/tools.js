@@ -5,6 +5,7 @@ import { splitGlass, liquidModel, fillLayers, toolSpecFromModel } from '../img2v
 import { rodModel, nuggetModel } from '../assets.js';
 import { breakVial } from '../game/sim.js';
 import { clamp01 } from '../util.js';
+import { createVecFilter, createQuatFilter } from '../filters.js';
 import { analog, pulse } from '../vr.js';
 import { tipLocal } from './space.js';
 
@@ -56,6 +57,8 @@ export function createTools(ctx) {
       prevGripPos: new THREE.Vector3(),
       gripTrackValid: false,
       grabOffset: new THREE.Vector2(), // mouse: pointer to tool offset
+      // smooths the pose a fist wants the tool at (reset when a hand takes the tool)
+      fistFilter: { pos: createVecFilter(INPUT.filter.fist.pos), rot: createQuatFilter(INPUT.filter.fist.rot) },
     };
   }
 
@@ -177,7 +180,7 @@ export function createTools(ctx) {
   }
 
   // Where each hand wants the tool it holds: a fist settles it into the natural hold, a pinch pulls the pinched point.
-  function updateHandTargets() {
+  function updateHandTargets(dt) {
     for (const hand of ctx.hands) {
       if (hand.held !== 'tool') continue;
       const t = hand.tool;
@@ -187,6 +190,10 @@ export function createTools(ctx) {
         const e = k * k * (3 - 2 * k);
         mat.compose(handPos.lerpVectors(g.fromPos, g.toPos, e), handQuat.slerpQuaternions(g.fromQuat, g.toQuat, e), ONE);
         mat.premultiply(hand.grip.matrixWorld).premultiply(view.worldInv).decompose(t.gripPos, t.gripQuat, scale);
+        const p = t.fistFilter.pos.filter(t.gripPos, dt); // tracked joints jitter: calm it while slow
+        const q = t.fistFilter.rot.filter(t.gripQuat, dt);
+        t.gripPos.set(p.x, p.y, p.z);
+        t.gripQuat.set(q.x, q.y, q.z, q.w);
       } else {
         tipLocal(view, hand, t.gripPos); // the fingertips pull the pinched point along
         mat.copy(hand.grip.matrixWorld).premultiply(view.worldInv).decompose(handPos, handQuat, scale);

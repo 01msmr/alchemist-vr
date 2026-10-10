@@ -113,6 +113,21 @@ try {
   check(reset.level === 1 && reset.vial && !reset.rod && !reset.nugget && reset.mess === 0 && reset.content === 'lead', `R starts over in level 1 (${JSON.stringify(reset)})`);
   await shot('after-reset');
 
+  // 8. the table height: set it like a real table (0.72 m), everything on it moves along, it is remembered after a reload
+  const before = await game(() => ({ y: window.__game.tools.vial.pos.y, world: window.__game.worldY, floor: window.__game.floorY }));
+  check(Math.abs(before.world - 0.85) < 1e-9 && Math.abs(before.floor + 0.85) < 1e-9, 'the default table is at 0.85 m');
+  check(await game(() => window.__game.setTableHeight(0.72)), 'a plausible table height is accepted');
+  check(!(await game(() => window.__game.setTableHeight(3))), 'an implausible one is refused');
+  await new Promise((r) => setTimeout(r, 1200));
+  const after = await game(() => ({ y: window.__game.tools.vial.pos.y, active: window.__game.tools.vial.active, world: window.__game.worldY, floor: window.__game.floorY }));
+  check(Math.abs(after.world - 0.72) < 1e-9 && Math.abs(after.floor + 0.72) < 1e-9, 'the world and the floor follow the table height');
+  check(after.active && Math.abs(after.y - before.y) < 0.01, 'the vial still stands on the table');
+  const lowered = await shot('table-072');
+  check(colorsIn(lowered) > 40, 'the lowered table renders');
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => window.__game, { timeout: 15000 });
+  check(Math.abs((await game(() => window.__game.tableHeight)) - 0.72) < 1e-9, 'the height is remembered after a reload');
+
   check(errors.length === 0, `no console or page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   console.log(`screenshots in ${outDir}`);
 } catch (e) {
