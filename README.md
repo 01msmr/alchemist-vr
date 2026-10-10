@@ -12,3 +12,4 @@ npm run img2vox -- cutout.png out.vox --height 13   # photo cut-out -> voxel she
 ```
 
 Deploy: a push to main builds on GitHub and updates the deploy branch; Plesk pulls it through a webhook.
+Webhook check.
