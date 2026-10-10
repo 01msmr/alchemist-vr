@@ -16,6 +16,11 @@ On the Quest, enable hand tracking in the headset settings and press the VR butt
 on it and hold a pinch still for a second (not next to an object): the virtual table moves to that height and is remembered.
 Pinch the status panel behind the table (or press B / Y, or R on the desktop) to start over.
 
+## Status
+Levels 1 (lead + mercury = amalgam) and 2 (amalgam + sulfur + heat + stirring = gold) are playable, with hands,
+controllers or the mouse. Not built yet: the ghost on the wall, the cat on the floor, sound, particles.
+`CLAUDE.md` has the details, the unverified assumptions and the next steps.
+
 ## Controls
 | | Hands | Controllers | Mouse |
 |---|---|---|---|

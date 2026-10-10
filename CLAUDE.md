@@ -30,7 +30,7 @@ Game jam entry (theme: **Magic**). A voxel-style alchemist game in **WebXR VR on
 ## Real-world anchoring (calibration)
 - Three frames: `TableFrame`, `WallFrame`, `FloorFrame`. Each has a matrix (position, rotation, size). Each level hangs on exactly one frame.
 - **Floor:** from `local-floor`, only check the height.
-- **Table:** 3 points with the controller on the real surface (corner, corner, opposite corner) gives height, rotation, size.
+- **Table:** 3 points with the controller on the real surface (corner, corner, opposite corner) gives height, rotation, size. *Built so far: the height only* (a fingertip on the table + a held pinch, see Current state); position, rotation and size are still fixed values in `config/layout.js`.
 - **Wall:** 2–3 points with the controller held flat on the wall.
 - Fine adjustment per plane with the stick (2–3 cm error is noticeable).
 - **Persistence:** store matrices in `localStorage` / IndexedDB. Do not rely on `anchors` in VR. On start, load the stored calibration and ask for ONE check point (controller on a table corner) to compute a correction offset. Offer "recalibrate" if rotation is off. Reason: the `local-floor` origin is not guaranteed identical between sessions.
@@ -99,6 +99,16 @@ Every stage ends with something testable in the headset.
 7. **Cleanup and delivery (2 days):** extract what repeated, failure states and hints, desktop fallback, itch.io build test (reserve at least half a day).
 - If time runs short, cut from the back: path 3 becomes a short final scene, path 2 simplified, **path 1 stays complete.**
 
+**Roadmap status (2026-10-10):**
+- 0 done: Vite + three.js, HTTPS dev server, deploy to the netcup server through GitHub (see Current state). No tag per stage yet.
+- 1 partly: VR session, `local-floor`, hands and controllers, table height set by touch and remembered; no 3-point table calibration, no check point on restart.
+- 2 done: `.vox` parser, mesher with vertex AO, own viewer (`viewer.html`), plus the photo-to-voxel tool. Frog and cat side by side were never made (no such models).
+- 3 partly: shared palette and models from code, one model from a photo (the vial). Not built: mortar, ladle, mold, frost crystal, animation, morph.
+- 4 done and beyond: hold, state machine by reaction rows, dose window, haptics, rigid bodies, grips that slip. Thumbstick tool switching was dropped (tools are held in the hand).
+- 5 partly: levels 1 and 2 playable with placeholder graphics; no particles, no sound, no outside playtest yet.
+- 6 not started (paths 2 and 3: the ghost on the wall, the cat on the floor).
+- 7 partly: desktop fallback and failure states exist; no itch.io test, no hints as symbols yet.
+
 ## Image to voxel
 `npm run img2vox -- <cut-out.png> <out.vox> --height 13 --colors 10 --crop-top 0.155 --stretch 1.2 --preview preview.png` (`--stretch` makes it taller, not wider; the vial uses 1.2) revolves the silhouette of a transparent-background photo (round objects: bottles, vases, flasks) into a hollow 1-voxel shell with colors picked from the photo (`src/img2vox/`). The mercury vial is such a model (`src/assets/bottle.vox`, from a potion bottle photo, stopper cropped off): its collision box and grab size come from the model, its liquid window is drawn on the shell (`vesselModel`). Keep source photos out of git (rights); commit only the derived `.vox`. Not built, only when needed: front + side photos as a visual hull for asymmetric objects.
 
@@ -116,22 +126,26 @@ Every stage ends with something testable in the headset.
 - Mesher and instancing performance with many objects on Quest 2 (measure in stage 2).
 - Whether itch.io iframe allows `xr-spatial-tracking` for WebXR (fallback: own host link).
 - Whether the current MagicaVoxel / Goxel builds run on macOS 27 and what exactly Goxel's export list contains.
-- Voxel-count and draw-call budgets are estimates.
+- Voxel-count and draw-call budgets are estimates. The see-through glass of the vial and the instanced puddles and drops have not been timed on a Quest.
+- That the Quest browser delivers `hand-tracking` joints as assumed in `tracking.js`, and every distance there (`INPUT.hand` in `config/input.js`): pinch 2 to 8 cm, finger curl 5.5 to 12 cm, the grasp point 4.5 cm in front of the palm.
+- That a fingertip resting on the real table reads about 1 cm above its surface (`INPUT.calibration.fingerThickness`), and that a 1 s hold is a good gesture (`holdSeconds`, `maxSpeed`).
+- The controller offsets `INPUT.controller.tipZ` and `palmZ`, the fist filter cutoffs (`INPUT.filter.fist`), the grip forces (`PHYSICS.grip`), the break and strike speeds, and every pour and dose number (`config/game.js`).
+- The headless smoke test covers the desktop path only (mouse, levels, restart, table height). Hands and controllers are covered by unit tests with fake joints and gamepads, not by a headset.
 
 ## Open questions
-- Is the order of the three paths fixed (assumed yes)?
-- Is the wall real (calibrated) or a virtual panel placed in front of the player? Floor: pedestal or real floor?
-- Is calibration done once per session (stored, with one check point) or more often? Decided so far: stored.
+- Is the order of the three paths fixed? Assumed yes; levels 1 and 2 are the gold path (path 1), the ghost and the cat are not built.
+- Is the wall real (calibrated) or a virtual panel placed in front of the player? Floor: pedestal or real floor? Open: decide before level 3.
+- Is calibration done once per session (stored) or more often? Stored so far, for the table height only (localStorage); no check point on restart.
 - Jam length and team size (alone or not) are unknown.
 - Which Quest model is available for testing.
 
 ## Current state (what exists, for the next session)
-Run `npm test` (pure logic, TDD) and `npm run dev`; the game is `src/main.js` (render loop, input glue), everything else is small pure modules.
+Start here. Run `npm run dev` to play (desktop mouse, or open the Network URL on the Quest), `npm test` for the pure logic (written test-first), `npm run smoke` to run the real game headless in Chromium (scripted mouse: match, vial, both levels, sulfur, nugget, restart, table height; fails on any console error). Run both test commands before every push. `src/main.js` only composes the pieces; see the code map below.
 
-**Playable:** level 1 and level 2 on a 2 x 1 m table at 0.85 m (world origin = table top, 45 cm in front of the player).
+**Playable:** level 1 and level 2 on a 2 x 1 m table, 0.85 m high until the player sets the real table's height (world origin = table top, 45 cm in front of the player).
 - Level 1: strike a match (fast stroke on the striker), light the candle, heat the lead to liquid (0.5 < temp < 0.95), pour mercury into the dose window (0.7 to 1.3), hold 1.5 s -> amalgam with a hidden quality.
 - About 3 s after the amalgam forms (and while the vial is not held) the used objects are cleared away; the mess on the table stays. Level 2: sulfur grains (pinch from the dish, 0.35 to 0.75 doses), heat, stir the rod in the crucible 3 s -> gold, dull gold or fool's gold by quality (0.4 amalgam + 0.3 sulfur + 0.3 heat). The gold can be taken out as a nugget. Failures are rows too: sludge, burnt, slag, lumps.
-- All tuning numbers are in `src/game/config.js`; the reaction table is `REACTIONS` in `src/game/sim.js`.
+- All tuning numbers are in `src/config/` (the rules in `config/game.js`); the reaction tables are in `src/game/levels/`.
 
 **Code map** (`src/`; `main.js` only composes the pieces and runs the loop, they share one `ctx`)
 - `config/`: all numbers. `game.js` rules (`CFG`), `layout.js` where things are, `input.js` hands/controllers/mouse (`INPUT`), `physics.js`, `tools.js` (`TOOLS`: size, mass, grab radius, break speed), `view.js` colors and sizes; `index.js` re-exports them frozen. Voxel colors are the palette in `palette.js`.
@@ -150,8 +164,8 @@ Run `npm test` (pure logic, TDD) and `npm run dev`; the game is `src/main.js` (r
 
 **Grip stability, measured (see `test/physics.test.js`):** a firm fist holds through a 40 cm swing in 0.3 s and a 30 cm lift in 0.25 s; a flick of 2 m/s or more is let go (the grip cannot accelerate the vial that hard, by design); a half grab (contact 0.3) still slips. The torque cap is not the limit (the needed torque is about 15x below it).
 
-**Unverified on a real Quest (tune with the status panel, which shows per hand `mode pinch grip`):** hand-tracking distances (`PINCH`, `GRIP_CURL` in `tracking.js`), the grasp point in front of the palm, the controller offsets `TIP_Z` and `PALM_Z` in `hand.js`, grip forces (`GRIP` in `physics.js`), the break speed, the strike speed, and every pour and dose number.
+**Unverified on a real Quest:** see the section "Unverified assumptions" above. Tune with the status panel, which shows per hand `mode pinch grip` and the table height.
 
-**Deliberately not built (YAGNI):** a controller calibration overlay, capacitive-touch poses, a One-Euro filter on the tip, two-photo visual hull for asymmetric objects, per-finger physics, wind or slosh, sound, level 3 (the ghost) and the cat finale.
+**Deliberately not built (YAGNI):** a controller calibration overlay, capacitive-touch poses, a filter on the pinch tip (only the fist's target is filtered), smoothing of the grip strength (tried, did not help), two-photo visual hull for asymmetric objects, per-finger physics, wind or slosh, sound, the smoke test in the GitHub build (Chromium on the runner could be slow or flaky and block deploys), level 3 (the ghost) and the cat finale.
 
-**Next step candidates:** try the hand tracking on the headset and tune the numbers above; level 3 (ghost on the wall, needs wall calibration); the real table's position and rotation (only its height is detected so far); tune the fist filter and the grip on the headset.
+**Next step candidates, in this order:** (1) try hands, controllers and the table height on the headset and tune the numbers listed under Unverified assumptions; (2) detect the real table's position and rotation, not only its height; (3) level 3, the ghost on the wall (decide first whether the wall is real or a virtual panel); (4) particles and sound for level 1; (5) an itch.io build test.
