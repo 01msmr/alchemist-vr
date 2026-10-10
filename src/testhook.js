@@ -16,6 +16,9 @@ export function installTestHook(ctx) {
     puddles: ctx.puddles,
     setTableHeight: (h) => ctx.calibration.set(h),
     get tableHeight() { return ctx.calibration.height; },
+    setTableEdge: (e) => ctx.calibration.setEdge(e),
+    get tableEdge() { return ctx.calibration.edge; },
+    get worldYaw() { return ctx.view.world.rotation.y; },
     get worldY() { return ctx.view.world.position.y; },
     get floorY() { return ctx.physics.world.bodies.find((b) => b.shapes[0]?.type === 2 /* plane */)?.position.y; },
     screenOf(name) {

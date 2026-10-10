@@ -128,6 +128,16 @@ try {
   await page.waitForFunction(() => window.__game, { timeout: 15000 });
   check(Math.abs((await game(() => window.__game.tableHeight)) - 0.72) < 1e-9, 'the height is remembered after a reload');
 
+  // 9. the table edge: a turned table, everything on it turns along, it is remembered after a reload
+  check(await game(() => window.__game.setTableEdge({ x: 0.1, z: -0.5, yaw: 0.2 })), 'a plausible table edge is accepted');
+  check(!(await game(() => window.__game.setTableEdge({ x: 0, z: 0, yaw: 3 }))), 'an implausible one is refused');
+  await new Promise((r) => setTimeout(r, 500));
+  check(Math.abs((await game(() => window.__game.worldYaw)) - 0.2) < 1e-9, 'the world turns with the edge');
+  check(colorsIn(await shot('table-turned')) > 40, 'the turned table renders');
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => window.__game, { timeout: 15000 });
+  check(Math.abs((await game(() => window.__game.worldYaw)) - 0.2) < 1e-9, 'the edge is remembered after a reload');
+
   check(errors.length === 0, `no console or page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   console.log(`screenshots in ${outDir}`);
 } catch (e) {

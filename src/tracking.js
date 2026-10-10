@@ -63,6 +63,12 @@ export function holdOffset(mode, handedness, radius) {
   return { x: 0, y: 0, z: -INPUT.controller.palmZ };
 }
 
+// A rotation of whole quarter turns (90 degrees each) about x, y and z of a frame, in that order of axes.
+export function quarterTurns({ x, y, z }) {
+  const q = Math.PI / 2;
+  return new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(x * q, y * q, z * q));
+}
+
 // Which input a hand uses this frame: a tracked hand is the main input, a controller with a pose the fallback.
 export function chooseMode({ trackedVisible, gamepad, controllerVisible }) {
   if (trackedVisible) return 'tracked';

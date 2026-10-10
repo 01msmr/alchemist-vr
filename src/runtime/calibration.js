@@ -1,24 +1,35 @@
 import * as THREE from 'three';
 import { INPUT, LAYOUT } from '../config/index.js';
-import { createDwell, validHeight, loadHeight, saveHeight } from '../calibration.js';
-import { pulse } from '../vr.js';
-import { tipLocal } from './space.js';
+import { createTapCounter, edgeFromPoints, validHeight, loadHeight, saveHeight, validEdge, loadEdge, saveEdge } from '../calibration.js';
+import { indexLocal } from './space.js';
 
 const C = INPUT.calibration;
 const range = LAYOUT.table.heightRange;
 const bounds = LAYOUT.tableBounds;
 
-// The virtual table stands at the height of the real one. Rest a fingertip on the real table and hold a pinch still
-// for a second (not next to anything you could pick up): the height of the fingertip is the table top. It is remembered
-// for the next session. Until then the table is at its default height (LAYOUT.table.h).
+// Steps, each done by tapping three times with the index finger of a tracked hand: the table top (the lowest tap is the height), then the
+// front edge at two places (the two points make a line: where the table stands and how it is turned). They repeat
+// in a loop, so any step can be done again. Height and edge are remembered for the next session. Until then the table
+// is at its default height and place (LAYOUT).
+const STEPS = ['height', 'edge 1', 'edge 2'];
+const NEXT = {
+  height: 'tap the table top',
+  'edge 1': 'tap the front edge, left part',
+  'edge 2': 'tap the front edge, right part',
+};
+
 export function createCalibration(ctx) {
   const { view, physics } = ctx;
   const storage = typeof localStorage === 'undefined' ? undefined : localStorage;
-  const dwells = [createDwell({ seconds: C.holdSeconds, maxSpeed: C.maxSpeed }), createDwell({ seconds: C.holdSeconds, maxSpeed: C.maxSpeed })];
+  const counters = [createTapCounter(C.tap), createTapCounter(C.tap)];
   const tip = new THREE.Vector3();
   let height = LAYOUT.table.h;
   let origin = 'default';
-  let progress = 0;
+  let edge = null;
+  let step = 0;
+  let first = null; // the first point of the edge (scene x, z)
+  let taps = 0;
+  let notice = '';
 
   function apply(h) {
     height = h;
@@ -31,6 +42,11 @@ export function createCalibration(ctx) {
     apply(remembered);
     origin = 'remembered';
   }
+  const rememberedEdge = loadEdge(storage, C.edge.storageKey);
+  if (rememberedEdge) {
+    edge = rememberedEdge;
+    view.setTableEdge(edge);
+  }
 
   function set(h) {
     if (!validHeight(h, range)) return false;
@@ -40,29 +56,59 @@ export function createCalibration(ctx) {
     return true;
   }
 
+  function setEdge(e) {
+    if (!validEdge(e)) return false;
+    edge = e;
+    view.setTableEdge(e);
+    saveEdge(storage, C.edge.storageKey, e);
+    return true;
+  }
+
+  const mean = (points) => ({ x: points.reduce((s, p) => s + p.x, 0) / points.length, z: points.reduce((s, p) => s + p.z, 0) / points.length });
+
+  // a finished set of three taps does the current step; returns whether it worked
+  function finish(r) {
+    notice = '';
+    if (STEPS[step] === 'height') return set(r.height - C.fingerThickness);
+    const point = mean(r.points);
+    if (STEPS[step] === 'edge 1') {
+      first = point;
+      return true;
+    }
+    const e = edgeFromPoints(first, point, { frontToOrigin: bounds.maxZ, minSpan: C.edge.minSpan });
+    if (!e || !setEdge(e)) {
+      notice = `the two edge points are too close (at least ${Math.round(C.edge.minSpan * 100)} cm apart)`;
+      return false;
+    }
+    return true;
+  }
+
   return {
     get height() { return height; },
+    get edge() { return edge; },
     set,
+    setEdge,
 
-    // each frame: a hand that holds a pinch still on the table sets its height
+    // each frame: a tracked hand (not a controller) that taps three times with the index finger does the current step
     update(dt) {
-      progress = 0;
+      taps = 0;
       ctx.hands.forEach((hand, i) => {
-        tipLocal(view, hand, tip);
-        const worldY = hand.tipPoint.y;
-        const onTable = hand.mode !== 'none' && hand.pinchOn && hand.held === null
-          && Math.abs(worldY - height) <= C.band
-          && tip.x >= bounds.minX && tip.x <= bounds.maxX && tip.z >= bounds.minZ && tip.z <= bounds.maxZ
-          && !ctx.handInput.nearThing(tip);
-        const r = dwells[i].update(onTable, hand.tipVel.length(), dt);
-        progress = Math.max(progress, r.progress);
-        if (r.done && set(worldY - C.fingerThickness)) pulse(hand, 0.5, 80);
+        indexLocal(view, hand, tip);
+        const worldY = hand.indexPoint.y;
+        // the edge of the real table may lie outside the virtual one: only the height step stays on the table
+        const onTable = STEPS[step] !== 'height'
+          || (tip.x >= bounds.minX && tip.x <= bounds.maxX && tip.z >= bounds.minZ && tip.z <= bounds.maxZ);
+        const over = hand.mode === 'tracked' && hand.held === null && Math.abs(worldY - height) <= C.band && onTable && !ctx.handInput.nearThing(tip);
+        const r = counters[i].update(worldY, over, dt, { x: hand.indexPoint.x, z: hand.indexPoint.z });
+        taps = Math.max(taps, r.taps);
+        if (r.done && finish(r)) step = (step + 1) % STEPS.length;
       });
     },
 
     statusLine() {
-      if (progress > 0) return `setting the table height... ${Math.round(progress * 100)}%`;
-      return `table ${height.toFixed(2)} m (${origin}; rest a finger on your table and hold a pinch to set it)`;
+      if (taps > 0) return `${STEPS[step]}: tap ${taps} of ${C.tap.count}`;
+      const state = `table ${height.toFixed(2)} m (${origin}${edge ? ', edge set' : ''})`;
+      return `${notice || state}; ${C.tap.count} index-finger taps: ${NEXT[STEPS[step]]}`;
     },
   };
 }

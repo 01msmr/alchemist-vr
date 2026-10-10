@@ -23,14 +23,12 @@ export function createScene() {
   const topMaterial = new THREE.MeshBasicMaterial({ color: VIEW.table.top });
   const sideMaterial = new THREE.MeshBasicMaterial({ color: VIEW.table.side });
   const slab = new THREE.Mesh(new THREE.BoxGeometry(table.w, VIEW.table.thickness, table.d), [sideMaterial, sideMaterial, topMaterial, sideMaterial, sideMaterial, sideMaterial]);
-  slab.position.set(0, table.h - VIEW.table.thickness / 2, table.z);
-  scene.add(slab);
+  slab.position.set(0, -VIEW.table.thickness / 2, table.z - worldOrigin.z); // in the world group: y from the table top
   const legs = [];
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
       const leg = new THREE.Mesh(new THREE.BoxGeometry(VIEW.table.leg, table.h - VIEW.table.thickness, VIEW.table.leg), sideMaterial);
-      leg.position.set(sx * (table.w / 2 - VIEW.table.legInset), (table.h - VIEW.table.thickness) / 2, table.z + sz * (table.d / 2 - VIEW.table.legInset));
-      scene.add(leg);
+      leg.position.set(sx * (table.w / 2 - VIEW.table.legInset), -VIEW.table.thickness - (table.h - VIEW.table.thickness) / 2, table.z - worldOrigin.z + sz * (table.d / 2 - VIEW.table.legInset));
       legs.push(leg);
     }
   }
@@ -38,6 +36,7 @@ export function createScene() {
   const world = new THREE.Group();
   world.position.set(worldOrigin.x, worldOrigin.y, worldOrigin.z);
   scene.add(world);
+  world.add(slab, ...legs);
   world.updateMatrixWorld(true);
   const worldInv = new THREE.Matrix4().copy(world.matrixWorld).invert();
 
@@ -95,13 +94,22 @@ export function createScene() {
     world.position.y = h;
     world.updateMatrixWorld(true);
     worldInv.copy(world.matrixWorld).invert();
-    slab.position.y = h - VIEW.table.thickness / 2;
     for (const leg of legs) {
       leg.scale.y = (h - VIEW.table.thickness) / (table.h - VIEW.table.thickness);
-      leg.position.y = (h - VIEW.table.thickness) / 2;
+      leg.position.y = -VIEW.table.thickness - (h - VIEW.table.thickness) / 2;
     }
     camera.position.y += delta;
     if (view.controls) view.controls.target.y += delta;
+  };
+
+  // The table's front edge was measured: the world group (and with it the table, its legs and everything on it)
+  // moves to the edge point and turns with the edge. e = { x, z, yaw } in the scene.
+  view.setTableEdge = ({ x, z, yaw }) => {
+    world.position.x = x;
+    world.position.z = z;
+    world.rotation.y = yaw;
+    world.updateMatrixWorld(true);
+    worldInv.copy(world.matrixWorld).invert();
   };
   return view;
 }

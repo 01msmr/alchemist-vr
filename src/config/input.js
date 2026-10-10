@@ -6,6 +6,9 @@ export const INPUT = {
   controller: {
     tipZ: 0.08, // the pinch point, where thumb and index fingertip would meet
     palmZ: 0.02, // the center of the closed hand
+    // how the game's hand is turned against the real controller, in quarter turns (90 degrees) about the controller's
+    // own axes (-z forward out of the controller, +y up): held tools and the drawn hand turn, the points stay where they are
+    turn: { x: 0, y: 0, z: 0 },
   },
   // a tracked hand (WebXR hand-tracking joints)
   hand: {
@@ -13,6 +16,9 @@ export const INPUT = {
     gripCurl: { open: 0.12, closed: 0.055 }, // fingertip to palm distance of middle, ring and little finger
     graspOffset: 0.045, // a held object sits this far in front of the palm
     holdMargin: 0.01, // a fist holds a tool at its radius plus this in front of the palm
+    // how the game's hand is turned against the real hand, in quarter turns (90 degrees) about the grip frame's axes
+    // (-z along the fingers, +y toward the thumb side): held tools turn, the points stay where they are
+    turn: { x: 0, y: 0, z: 0 },
   },
   // analog finger values (0..1) with hysteresis, so letting go is a deliberate loosening
   analog: { squeezeOn: 0.7, squeezeOff: 0.3, pinchOn: 0.6, pinchOff: 0.25 },
@@ -63,14 +69,15 @@ export const INPUT = {
     pour: { base: 0.1, range: 0.5, ms: 60, every: 0.08 }, // strength grows with the flow; every = seconds between pulses
   },
 
-  // setting the height of the real table: rest a fingertip on it and hold a pinch still
+  // setting the real table: tap its top three times with the index finger (the lowest tap is the table top), then its
+  // front edge three times at two places (a line: where the table is and how it is turned)
   calibration: {
-    holdSeconds: 1,
-    maxSpeed: 0.03, // m/s: the fingertip must be this still
+    tap: { count: 3, drop: 0.02, lift: 0.015, maxGap: 0.75, tolerance: 0.03 }, // m, s: a tap drops 2 cm then lifts 1.5 cm; taps at most 0.75 s apart and within 3 cm of each other
     band: 0.25, // m above or below the current virtual table top where a touch counts
     keepAway: 0.08, // m: not within this of anything you could pick up (a missed grab is not a calibration)
     fingerThickness: 0.01, // m: the fingertip joint is this far above the surface it touches
     storageKey: 'alchemist.tableHeight',
+    edge: { minSpan: 0.3, storageKey: 'alchemist.tableEdge' }, // m: the two edge points must be this far apart
   },
 
   // desktop fallback

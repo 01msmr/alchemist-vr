@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {
-  palmPoint, handFrame, pinchPoint, pinchStrength, gripStrength, graspPoint, holdOffset, chooseMode,
+  palmPoint, handFrame, pinchPoint, pinchStrength, gripStrength, graspPoint, holdOffset, chooseMode, quarterTurns,
 } from '../src/tracking.js';
 import { INPUT } from '../src/config/index.js';
 
@@ -112,4 +112,13 @@ test('input mode: tracked hand wins, then a controller with a pose, else none', 
   assert.equal(chooseMode({ trackedVisible: false, gamepad: true, controllerVisible: true }), 'controller');
   assert.equal(chooseMode({ trackedVisible: false, gamepad: true, controllerVisible: false }), 'none');
   assert.equal(chooseMode({ trackedVisible: false, gamepad: false, controllerVisible: true }), 'none');
+});
+
+test('quarter turns: none is the identity, each step is 90 degrees about its axis, four are a full turn', () => {
+  const near = (m, x, y, z, p) => assert.ok(p.clone().applyMatrix4(m).distanceTo(new THREE.Vector3(x, y, z)) < 1e-9);
+  assert.ok(quarterTurns({ x: 0, y: 0, z: 0 }).equals(new THREE.Matrix4()));
+  near(quarterTurns({ x: 1, y: 0, z: 0 }), 0, 0, 1, new THREE.Vector3(0, 1, 0)); // +y turns to +z about x
+  near(quarterTurns({ x: 0, y: 1, z: 0 }), 0, 0, -1, new THREE.Vector3(1, 0, 0)); // +x turns to -z about y
+  near(quarterTurns({ x: 0, y: 0, z: 1 }), 0, 1, 0, new THREE.Vector3(1, 0, 0)); // +x turns to +y about z
+  near(quarterTurns({ x: 4, y: -4, z: 8 }), 1, 2, 3, new THREE.Vector3(1, 2, 3));
 });

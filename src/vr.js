@@ -3,9 +3,12 @@ import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
 import { createPincer, createFistWrap, createPinchGrip } from './hand.js';
 import { INPUT } from './config/index.js';
-import { handFrame, pinchPoint, pinchStrength, gripStrength, graspPoint, chooseMode } from './tracking.js';
+import { handFrame, pinchPoint, pinchStrength, gripStrength, graspPoint, chooseMode, quarterTurns } from './tracking.js';
 
 const { tipZ: TIP_Z, palmZ: PALM_Z } = INPUT.controller;
+const HAND_TURN = quarterTurns(INPUT.hand.turn);
+const CONTROLLER_TURN = quarterTurns(INPUT.controller.turn);
+const controllerIsTurned = !CONTROLLER_TURN.equals(new THREE.Matrix4());
 
 // The joints the recognition needs (WebXR names).
 const JOINTS = [
@@ -41,6 +44,7 @@ export function setupVR(renderer, scene) {
       index, handedness: index === 0 ? 'left' : 'right', grip, trackedHand, gamepad: null,
       mode: 'none', pinch: 0, squeeze: 0,
       tipPoint: new THREE.Vector3(), // where the fingertips pinch, in the scene
+      indexPoint: new THREE.Vector3(), // the index fingertip (a controller's tip), in the scene: it taps the table
       graspPoint: new THREE.Vector3(), // where a fist closes, in the scene
       tipInGrip: new THREE.Vector3(0, 0, -TIP_Z), // tipPoint in the grip frame
       held: null, holdMode: null,
@@ -74,7 +78,7 @@ function readJoints(trackedHand) {
 }
 
 const inverse = new THREE.Matrix4();
-const rest = new THREE.Vector3();
+const realFrame = new THREE.Matrix4();
 
 // Once per frame, before anything reads the hand: choose tracked hand or controller and fill in the hand.
 export function updateInput(hand) {
@@ -82,25 +86,36 @@ export function updateInput(hand) {
   hand.mode = chooseMode({ trackedVisible: !!joints, gamepad: !!hand.gamepad, controllerVisible: hand.grip.visible });
 
   if (hand.mode === 'tracked') {
-    const frame = handFrame(joints);
+    const frame = handFrame(joints).multiply(HAND_TURN);
     hand.grip.matrix.copy(frame);
     hand.grip.matrixWorld.copy(frame);
     hand.pinch = pinchStrength(joints);
     hand.squeeze = gripStrength(joints);
     hand.tipPoint.copy(pinchPoint(joints));
+    hand.indexPoint.copy(joints['index-finger-tip']);
     hand.graspPoint.copy(graspPoint(joints, hand.handedness));
     hand.tipInGrip.copy(hand.tipPoint).applyMatrix4(inverse.copy(frame).invert());
   } else if (hand.mode === 'controller') {
     const buttons = hand.gamepad.buttons;
     hand.pinch = buttons[0]?.value ?? 0; // index finger on the trigger
     hand.squeeze = buttons[1]?.value ?? 0; // the other fingers on the grip button
-    hand.tipInGrip.set(0, 0, -TIP_Z);
-    hand.tipPoint.copy(hand.tipInGrip).applyMatrix4(hand.grip.matrixWorld);
-    hand.graspPoint.copy(rest.set(0, 0, -PALM_Z)).applyMatrix4(hand.grip.matrixWorld);
+    // the points are measured on the real controller; the game's frame may be turned against it (from the pose each
+    // frame, so the turn never piles up)
+    const real = controllerIsTurned ? realFrame.multiplyMatrices(hand.grip.parent.matrixWorld, hand.grip.matrix) : hand.grip.matrixWorld;
+    hand.tipPoint.set(0, 0, -TIP_Z).applyMatrix4(real);
+    hand.indexPoint.copy(hand.tipPoint);
+    hand.graspPoint.set(0, 0, -PALM_Z).applyMatrix4(real);
+    if (controllerIsTurned) hand.grip.matrixWorld.copy(real).multiply(CONTROLLER_TURN);
+    hand.tipInGrip.copy(hand.tipPoint).applyMatrix4(inverse.copy(hand.grip.matrixWorld).invert());
   } else {
     hand.pinch = 0;
     hand.squeeze = 0;
   }
+}
+
+// World-space index fingertip (a controller's tip).
+export function indexWorld(hand, out) {
+  return out.copy(hand.indexPoint);
 }
 
 // World-space point where the index finger and thumb pinch.

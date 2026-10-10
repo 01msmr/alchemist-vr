@@ -31,7 +31,7 @@ function makeHand(overrides = {}) {
   return {
     handedness: 'right', grip, gamepad: null, trackedHand: { visible: false, joints: {} },
     mode: 'none', pinch: 0, squeeze: 0,
-    tipPoint: new THREE.Vector3(), graspPoint: new THREE.Vector3(), tipInGrip: new THREE.Vector3(),
+    tipPoint: new THREE.Vector3(), indexPoint: new THREE.Vector3(), graspPoint: new THREE.Vector3(), tipInGrip: new THREE.Vector3(),
     ...overrides,
   };
 }
@@ -44,6 +44,7 @@ test('a tracked hand fills the grip frame, the fingertip point and both strength
   assert.equal(hand.squeeze, 1);
   const tip = tipWorld(hand, new THREE.Vector3());
   assert.ok(tip.distanceTo(new THREE.Vector3(-0.02, PINCH.closed / 2, -0.1)) < 1e-9);
+  assert.ok(hand.indexPoint.distanceTo(new THREE.Vector3(-0.02, 0, -0.1)) < 1e-9, 'the index fingertip itself, not the pinch point');
   // the pinch point expressed in the grip frame, turned back, is the same point
   const back = hand.tipInGrip.clone().applyMatrix4(hand.grip.matrixWorld);
   assert.ok(back.distanceTo(tip) < 1e-9);

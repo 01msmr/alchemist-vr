@@ -38,7 +38,8 @@ test('windows and thresholds are in the right order', () => {
 test('the filter and calibration settings make sense', () => {
   for (const f of [INPUT.filter.fist.pos, INPUT.filter.fist.rot]) assert.ok(f.minCutoff > 0 && f.beta >= 0 && f.dCutoff > 0);
   assert.ok(LAYOUT.table.heightRange[0] < LAYOUT.table.h && LAYOUT.table.h < LAYOUT.table.heightRange[1], 'the default table height is plausible');
-  assert.ok(INPUT.calibration.holdSeconds > 0 && INPUT.calibration.maxSpeed > 0 && typeof INPUT.calibration.storageKey === 'string');
+  assert.ok(INPUT.calibration.tap.count > 0 && INPUT.calibration.tap.maxGap > 0 && typeof INPUT.calibration.storageKey === 'string');
+  for (const turn of [INPUT.controller.turn, INPUT.hand.turn]) assert.ok(['x', 'y', 'z'].every((a) => Number.isInteger(turn[a])), 'turns are whole quarter turns');
   assert.ok(INPUT.calibration.keepAway > 0 && INPUT.calibration.band > 0);
 });
 
