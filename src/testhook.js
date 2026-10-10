@@ -18,13 +18,16 @@ export function installTestHook(ctx) {
     get tableHeight() { return ctx.calibration.height; },
     setTableEdge: (e) => ctx.calibration.setEdge(e),
     get tableEdge() { return ctx.calibration.edge; },
+    view: ctx.view,
+    get settings() { return ctx.settings.get(); },
+    get cordPulled() { return ctx.console.cord.pulled; },
     breakVial: () => ctx.tools.tools.vial.ph.breakNow(),
     get shards() { return ctx.physics.debris.length; },
     get worldYaw() { return ctx.view.world.rotation.y; },
     get worldY() { return ctx.view.world.position.y; },
     get floorY() { return ctx.physics.world.bodies.find((b) => b.shapes[0]?.type === 2 /* plane */)?.position.y; },
     screenOf(name) {
-      const where = {
+      const where = ['lever', 'lab', 'bench', 'stable', 'bead'].includes(name) ? ctx.console.centerOf(name) : {
         box: ctx.matches.boxCenter,
         crucible: v(LAYOUT.crucible),
         stand: v(LAYOUT.wick),

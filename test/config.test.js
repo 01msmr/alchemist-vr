@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CFG, LAYOUT, INPUT, PHYSICS, TOOLS, VIEW } from '../src/config/index.js';
+import { CFG, CONSOLE, LAYOUT, INPUT, PHYSICS, TOOLS, VIEW } from '../src/config/index.js';
 
 // every number in the config, however deep
 function numbers(object, path = '') {
@@ -13,12 +13,12 @@ function numbers(object, path = '') {
 
 test('all config objects are frozen, so nothing changes a value by accident', () => {
   const deeplyFrozen = (object) => Object.isFrozen(object) && Object.values(object).every((v) => !v || typeof v !== 'object' || deeplyFrozen(v));
-  for (const config of [CFG, LAYOUT, INPUT, PHYSICS, TOOLS, VIEW]) assert.ok(deeplyFrozen(config));
+  for (const config of [CFG, CONSOLE, LAYOUT, INPUT, PHYSICS, TOOLS, VIEW]) assert.ok(deeplyFrozen(config));
   assert.throws(() => { 'use strict'; CFG.MELT = 0; }, TypeError);
 });
 
 test('every number in the config is a real number', () => {
-  for (const config of [CFG, LAYOUT, INPUT, PHYSICS, TOOLS, VIEW]) {
+  for (const config of [CFG, CONSOLE, LAYOUT, INPUT, PHYSICS, TOOLS, VIEW]) {
     for (const [name, value] of numbers(config)) assert.ok(Number.isFinite(value), `${name} is ${value}`);
   }
 });

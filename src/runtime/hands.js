@@ -125,6 +125,7 @@ export function createHandInput(ctx) {
       if (levelOf(ctx.state).scene.props.some((name) => PROPS[name].source && tmp.set(PROPS[name].source.center.x, PROPS[name].source.center.y, PROPS[name].source.center.z).distanceTo(point) < PROPS[name].source.reach + away)) return true;
       if (point.distanceTo(wick) < reach.snuff + away) return true;
       if (Math.hypot(point.x - c.x, point.z - c.z) < reach.nugget + away) return true;
+      if (ctx.console?.near(point)) return true;
       return point.distanceTo(ctx.hud.panel.position) < reach.reset + away;
     },
 

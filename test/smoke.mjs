@@ -147,6 +147,46 @@ try {
   check(colorsIn(await shot('shards')) > 40, 'the pieces render');
   check(!(await game(() => window.__game.tools.vial.active)), 'the vial is gone');
 
+  // 11. the settings console on the table's right edge: lever, buttons, pull cord; the choices survive a reload
+  await game(() => {
+    const g = window.__game;
+    g.setTableEdge({ x: 0, z: -0.45, yaw: 0 });
+    const o = g.view.world.position; // look at the right edge of the table from farther away
+    g.view.controls.target.set(o.x + 0.8, o.y + 0.25, o.z + 0.05);
+    g.view.camera.position.set(o.x + 0.8, o.y + 0.5, o.z + 1.4);
+    g.view.controls.update();
+  });
+  await page.keyboard.press('r');
+  await new Promise((r) => setTimeout(r, 500));
+  check((await game(() => window.__game.settings.theme)) === 'dark', 'the console starts dark');
+  const lever = await at('lever');
+  await page.mouse.click(lever.x, lever.y);
+  check((await game(() => window.__game.settings.theme)) === 'light', 'a click on the lever switches to the light look');
+  await page.mouse.click(lever.x, lever.y);
+  await page.mouse.click(lever.x, lever.y);
+  check((await game(() => window.__game.settings.theme)) === 'light', 'the lever flips on every click');
+  const bench = await at('bench');
+  await page.mouse.click(bench.x, bench.y);
+  check((await game(() => window.__game.settings.background)) === 'bench', 'a click on a button chooses that background');
+  check(colorsIn(await shot('console-light')) > 40, 'the console renders');
+  await game(() => { window.__game.state.candleLit = true; });
+  const bead = await at('bead');
+  await moveTo(bead);
+  await page.mouse.down();
+  await moveTo({ x: bead.x, y: bead.y + 40 }, 6);
+  const half = await game(() => window.__game.cordPulled);
+  check(half > 0.02 && half < 0.15, `dragging the bead pulls the cord (${half.toFixed(3)} m)`);
+  check(await game(() => window.__game.state.candleLit), 'a half pull does not restart');
+  await moveTo({ x: bead.x, y: bead.y + 220 }, 12);
+  await page.mouse.up();
+  check(!(await game(() => window.__game.state.candleLit)), 'a full pull restarts the level');
+  await new Promise((r) => setTimeout(r, 1500));
+  check((await game(() => window.__game.cordPulled)) === 0, 'the cord springs back up');
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => window.__game, { timeout: 15000 });
+  const kept = await game(() => window.__game.settings);
+  check(kept.theme === 'light' && kept.background === 'bench', `the choices are remembered after a reload (${JSON.stringify(kept)})`);
+
   check(errors.length === 0, `no console or page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   console.log(`screenshots in ${outDir}`);
 } catch (e) {

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { CFG, INPUT, LAYOUT, VIEW } from './config/index.js';
+import { CFG, CONSOLE, INPUT, LAYOUT, VIEW } from './config/index.js';
+import { createSettings } from './settings.js';
 import { parseVox } from './vox.js';
 import bottleUrl from './assets/bottle.vox?url';
 import { crucibleModel, crucibleContents, standModel, FLAME_FRAMES } from './assets.js';
@@ -18,6 +19,7 @@ import { createRunner } from './runtime/runner.js';
 import { createHandInput } from './runtime/hands.js';
 import { createMouse } from './runtime/mouse.js';
 import { createCalibration } from './runtime/calibration.js';
+import { createConsole } from './runtime/console.js';
 import { installTestHook } from './testhook.js';
 
 // The composition: the pieces are built here and share one `ctx` (the world they live in); the loop at the end
@@ -55,6 +57,15 @@ ctx.matches = createMatches(ctx);
 ctx.stirring = createStirring(ctx);
 ctx.runner = createRunner(ctx);
 ctx.handInput = createHandInput(ctx);
+ctx.settings = createSettings(typeof localStorage === 'undefined' ? undefined : localStorage, CONSOLE.storageKey);
+const applyLook = (s) => {
+  view.setTheme(s.theme);
+  view.setBackground(s.background);
+  ctx.hud.setTheme(VIEW.themes[s.theme]);
+};
+applyLook(ctx.settings.get());
+ctx.settings.subscribe(applyLook);
+ctx.console = createConsole(ctx); // before the mouse: a click on a control must not pick anything up
 ctx.mouse = createMouse(ctx); // before the controls: its pointerdown must run first
 createControls(view);
 ctx.calibration = createCalibration(ctx); // moves the table to the remembered height
@@ -82,6 +93,7 @@ view.renderer.setAnimationLoop(() => {
   // input: what the hands and the mouse hold, and where
   ctx.handInput.update(dt);
   ctx.calibration.update(dt);
+  ctx.console.update(dt);
   tools.updateHandTargets(dt);
   ctx.mouse.updatePoses();
   matches.updatePose();

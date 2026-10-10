@@ -21,11 +21,12 @@ export function createHud(view) {
   renderer.xr.addEventListener('sessionend', () => { panel.visible = false; });
 
   let drawnAt = 0;
+  const colors = { background: VIEW.themes.dark.panelBackground, text: VIEW.themes.dark.panelText };
   function draw(lines) {
     const g = canvas.getContext('2d');
-    g.fillStyle = p.background;
+    g.fillStyle = colors.background;
     g.fillRect(0, 0, canvas.width, canvas.height);
-    g.fillStyle = p.text;
+    g.fillStyle = colors.text;
     g.font = p.font;
     lines.forEach((line, i) => g.fillText(line, 16, 38 + i * p.lineHeight));
     texture.needsUpdate = true;
@@ -39,6 +40,14 @@ export function createHud(view) {
 
   return {
     panel,
+    // the panel's colors for a theme; redrawn at the next update
+    setTheme(theme) {
+      colors.background = theme.panelBackground;
+      colors.text = theme.panelText;
+      drawnAt = 0;
+      dom.style.color = theme.pageText;
+      document.body.style.background = theme.page;
+    },
     // lines: the status lines; time: seconds (the panel is redrawn a few times a second)
     update(lines, time) {
       if (renderer.xr.isPresenting) {
