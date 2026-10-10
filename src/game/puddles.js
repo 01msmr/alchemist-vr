@@ -1,8 +1,11 @@
 // Spilled mercury that stays on the table: a grid of 1 cm cells, each holding some amount. A full cell
 // passes the surplus to the nearest cell with room, so a spill grows into a round, thin puddle.
-export const CELL = 0.01;
-export const MAX_CELL = 0.03;
-const RADIUS = 40; // cells; a puddle can't grow wider than this
+// The sizes are in config/game.js.
+import { CFG } from '../config/index.js';
+
+export const CELL = CFG.PUDDLE_CELL;
+export const MAX_CELL = CFG.PUDDLE_CELL_MAX;
+const RADIUS = CFG.PUDDLE_RADIUS_CELLS;
 
 // cell offsets within RADIUS, nearest first
 const OFFSETS = [];

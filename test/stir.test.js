@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createStirTracker } from '../src/game/stir.js';
-import { CFG } from '../src/game/config.js';
+import { CFG } from '../src/config/index.js';
 
 const TARGET = { cx: 0, cz: 0, top: 0.14, bottom: 0.08, radius: 0.035 };
 

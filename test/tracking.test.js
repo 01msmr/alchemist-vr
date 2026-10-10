@@ -2,8 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {
-  palmPoint, handFrame, pinchPoint, pinchStrength, gripStrength, graspPoint, holdOffset, chooseMode, PINCH, GRIP_CURL,
+  palmPoint, handFrame, pinchPoint, pinchStrength, gripStrength, graspPoint, holdOffset, chooseMode,
 } from '../src/tracking.js';
+import { INPUT } from '../src/config/index.js';
+
+const PINCH = INPUT.hand.pinch;
+const GRIP_CURL = INPUT.hand.gripCurl;
 
 // A synthetic right hand in the grip convention: fingers along -z, thumb side +y, palm facing -x.
 // Joint positions are given as plain {x, y, z}.

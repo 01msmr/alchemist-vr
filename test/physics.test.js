@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createPhysics, GRIP } from '../src/physics.js';
-import { TOOLS } from '../src/tools.js';
+import { createPhysics } from '../src/physics.js';
+import { PHYSICS, TOOLS } from '../src/config/index.js';
 
 const REST = { x: 0.22, y: TOOLS.vial.half.y, z: 0.08 };
 
@@ -175,7 +175,7 @@ test('letting go of a grip drops the vial', () => {
 });
 
 function GRIP_LOSE(mode) {
-  return mode === 'fist' ? 0.05 : 0.04;
+  return PHYSICS.grip[mode].lose;
 }
 
 test('a rod dropped over the crucible falls inside it, stirring depth reachable', () => {

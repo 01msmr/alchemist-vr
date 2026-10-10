@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spillVelocity, spawnDrop, stepDrops, MAX_DROPS, GRAVITY } from '../src/game/drops.js';
-import { CFG } from '../src/game/config.js';
+import { CFG } from '../src/config/index.js';
 
 const TARGET = { cx: 0, cz: 0, top: 0.14, mouth: 0.035, rim: 0.047 };
 const still = { x: 0, y: 0, z: 0 };

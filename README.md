@@ -10,6 +10,7 @@ npm install
 npm run dev      # https://localhost:5173/ (use the "Network" URL on the Quest, accept the certificate warning)
 npm test         # unit tests of the pure logic
 npm run build    # production build into dist/
+npm run smoke    # runs the real game headless in Chromium with scripted mouse input (slow; fails on any console error)
 ```
 On the Quest, enable hand tracking in the headset settings and press the VR button. Pinch the status panel
 behind the table (or press B / Y, or R on the desktop) to start over.
@@ -22,9 +23,9 @@ behind the table (or press B / Y, or R on the desktop) to start over.
 | Tilt the vial to pour | turn the wrist | turn the wrist | Shift + drag up/down |
 
 ## Code
-`src/main.js` is the render loop and input glue; the rest are small tested modules (`src/game/` chemistry and
-levels, `physics.js` loose objects, `tracking.js` hand recognition, `img2vox/` photo to voxel). The decisions,
-the current state and what is still unverified are in [CLAUDE.md](CLAUDE.md).
+`src/main.js` composes the pieces and runs the loop. Rules are in `src/game/` (levels are data in `game/levels/`),
+what you see in `src/view/`, what the player can do in `src/runtime/`, and **every tunable number in `src/config/`**.
+The decisions, the current state, how to add a level and what is still unverified are in [CLAUDE.md](CLAUDE.md).
 
 ## Photo to voxel
 ```

@@ -1,23 +1,16 @@
 import * as CANNON from 'cannon-es';
+import { PHYSICS } from './config/index.js';
 
 // Rigid-body physics for the loose objects (tools: the vial, the stirring rod, the gold nugget) and dropped
 // matches. The table, the stand with the crucible, the matchbox, the dish and the floor are static.
 // A mouse holds a tool rigidly (kinematic); a hand holds it with a force-limited spring (see GRIP).
-const SUBSTEP = 1 / 180;
-const MATCH_HALF = { x: 0.005, y: 0.025, z: 0.005 };
-const MATCH_MASS = 0.002;
-const G = 9.81;
-
-// A hand pulls the gripped point to where it wants it with a spring. The force is limited:
-// capacity = forceG x weight x contact (how much of the tool is in the hand) x strength (how hard it is pressed).
-// Beyond its capacity the grip slips. A fist also steers the orientation; a pinch only weakly
-// (the tool pivots between the fingertips). wn = natural frequency of the orientation spring (rad/s).
-export const GRIP = {
-  fist: { forceG: 2.85, torqueG: 0.1, wn: 60, lose: 0.05 },
-  pinch: { forceG: 1.85, torqueG: 0.02, wn: 25, lose: 0.04 },
-};
-const KP_PER_MASS = 5000; // N/m per kg
-const KD_PER_MASS = 160; // N s/m per kg
+// The numbers (gravity, grip forces, friction, ...) are in config/physics.js. A hand pulls the gripped point to
+// where it wants it with a spring whose force is limited, so a weak or half grab slips.
+const { gravity: G, substep: SUBSTEP, maxSubsteps: MAX_SUBSTEPS, grip: GRIP, spring, match } = PHYSICS;
+const KP_PER_MASS = spring.kpPerMass;
+const KD_PER_MASS = spring.kdPerMass;
+const MATCH_HALF = match.half;
+const MATCH_MASS = match.mass;
 
 // opts: { table: {minX, maxX, minZ, maxZ} (top surface at y = 0), floorY,
 //         stack: {x, z, h, halfW, baseH, innerHalf} (the stand up to baseH, then a hollow crucible up to h),
@@ -25,8 +18,8 @@ const KD_PER_MASS = 160; // N s/m per kg
 export function createPhysics(opts) {
   const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -G, 0) });
   world.allowSleep = true;
-  world.defaultContactMaterial.friction = 0.5;
-  world.defaultContactMaterial.restitution = 0.2;
+  world.defaultContactMaterial.friction = PHYSICS.friction;
+  world.defaultContactMaterial.restitution = PHYSICS.restitution;
 
   function staticBox(cx, cy, cz, hx, hy, hz) {
     const body = new CANNON.Body({ mass: 0, shape: new CANNON.Box(new CANNON.Vec3(hx, hy, hz)) });
@@ -36,7 +29,8 @@ export function createPhysics(opts) {
   }
   const { table, stack, matchbox } = opts;
   // thick slabs, so a fast small object can't get through
-  staticBox((table.minX + table.maxX) / 2, -0.15, (table.minZ + table.maxZ) / 2, (table.maxX - table.minX) / 2, 0.15, (table.maxZ - table.minZ) / 2);
+  const slab = PHYSICS.slab / 2;
+  staticBox((table.minX + table.maxX) / 2, -slab, (table.minZ + table.maxZ) / 2, (table.maxX - table.minX) / 2, slab, (table.maxZ - table.minZ) / 2);
   // the stand is solid, the crucible on it is a hollow square ring around an opening a rod or a vial can enter
   staticBox(stack.x, stack.baseH / 2, stack.z, stack.halfW, stack.baseH / 2, stack.halfW);
   staticBox(stack.x, stack.baseH + 0.005, stack.z, stack.halfW, 0.005, stack.halfW); // crucible floor
@@ -227,7 +221,7 @@ export function createPhysics(opts) {
     body.quaternion.set(quat.x, quat.y, quat.z, quat.w);
     body.velocity.set(lin.x, lin.y, lin.z);
     world.addBody(body);
-    const entry = { body, ttl: 5, data };
+    const entry = { body, ttl: match.lifetime, data };
     debris.push(entry);
     return entry;
   }
@@ -248,7 +242,7 @@ export function createPhysics(opts) {
 
   function step(dt) {
     if (dt <= 0) return;
-    const n = Math.min(12, Math.max(1, Math.ceil(dt / SUBSTEP)));
+    const n = Math.min(MAX_SUBSTEPS, Math.max(1, Math.ceil(dt / SUBSTEP)));
     const h = dt / n;
     for (let i = 0; i < n; i++) {
       for (const tool of tools) {

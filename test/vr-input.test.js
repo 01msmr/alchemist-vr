@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import { updateInput, tipWorld, palmWorld, analog } from '../src/vr.js';
-import { PINCH } from '../src/tracking.js';
+import { INPUT } from '../src/config/index.js';
+
+const PINCH = INPUT.hand.pinch;
 
 const joint = (x, y, z) => ({ visible: true, position: new THREE.Vector3(x, y, z) });
 function trackedHand({ pinchGap = 0.1, curl = 0 } = {}) {

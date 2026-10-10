@@ -1,16 +1,15 @@
 import * as THREE from 'three';
-import { PALM_Z } from './hand.js';
+import { INPUT } from './config/index.js';
+import { clamp01 } from './util.js';
 
 // Recognition of a tracked hand (WebXR hand-tracking joints) in the same terms the game uses for a controller:
 // a grip frame (origin at the palm, -Z along the fingers, +Y toward the thumb side), a pinch point, a grasp point
 // and two strengths 0..1 (pinch = thumb and index fingertip, grip = the other three fingers). Joints are plain
 // { x, y, z } positions keyed by the WebXR joint name. All distances are meters and unverified on a real Quest.
-export const PINCH = { open: 0.08, closed: 0.02 }; // thumb tip to index tip distance
-export const GRIP_CURL = { open: 0.12, closed: 0.055 }; // fingertip to palm distance of middle, ring and little finger
-const GRASP_OFFSET = 0.045; // a held object sits this far in front of the palm
+// The thresholds are in config/input.js (INPUT.hand).
+const { pinch: PINCH, gripCurl: GRIP_CURL, graspOffset: GRASP_OFFSET, holdMargin } = INPUT.hand;
 
 const vec = (p) => new THREE.Vector3(p.x, p.y, p.z);
-const clamp01 = (x) => Math.min(1, Math.max(0, x));
 const strength = (distance, { open, closed }) => clamp01((open - distance) / (open - closed));
 
 // Between the wrist and the middle finger's knuckle.
@@ -60,8 +59,8 @@ export function graspPoint(j, handedness) {
 // Where a tool's center sits in the grip frame when held in a fist. A controller's handle is in the palm; a
 // tracked hand wraps around the tool, so the tool sits its radius (plus a little) in front of the palm.
 export function holdOffset(mode, handedness, radius) {
-  if (mode === 'tracked') return { x: palmSide(handedness) * (radius + 0.01), y: 0, z: 0 };
-  return { x: 0, y: 0, z: -PALM_Z };
+  if (mode === 'tracked') return { x: palmSide(handedness) * (radius + holdMargin), y: 0, z: 0 };
+  return { x: 0, y: 0, z: -INPUT.controller.palmZ };
 }
 
 // Which input a hand uses this frame: a tracked hand is the main input, a controller with a pose the fallback.

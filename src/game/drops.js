@@ -1,4 +1,4 @@
-import { CFG } from './config.js';
+import { CFG } from '../config/index.js';
 
 export const GRAVITY = 9.81;
 export const MAX_DROPS = 256;

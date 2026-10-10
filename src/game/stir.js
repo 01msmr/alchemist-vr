@@ -1,4 +1,4 @@
-import { CFG } from './config.js';
+import { CFG } from '../config/index.js';
 
 // Is the rod tip stirring? It must be inside the crucible (below the rim, above the bottom) and moving
 // across at STIR_MIN_SPEED or more. Call once per frame with the tip position (world-local); the tracker

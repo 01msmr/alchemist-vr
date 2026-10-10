@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { createPincer, createFistWrap, createPinchGrip, TIP_Z } from '../src/hand.js';
+import { createPincer, createFistWrap, createPinchGrip } from '../src/hand.js';
+import { INPUT } from '../src/config/index.js';
+
+const TIP_Z = INPUT.controller.tipZ;
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 

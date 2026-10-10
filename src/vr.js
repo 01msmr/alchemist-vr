@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
-import { createPincer, createFistWrap, createPinchGrip, TIP_Z, PALM_Z } from './hand.js';
+import { createPincer, createFistWrap, createPinchGrip } from './hand.js';
+import { INPUT } from './config/index.js';
 import { handFrame, pinchPoint, pinchStrength, gripStrength, graspPoint, chooseMode } from './tracking.js';
 
-export { TIP_Z, PALM_Z };
+const { tipZ: TIP_Z, palmZ: PALM_Z } = INPUT.controller;
 
 // The joints the recognition needs (WebXR names).
 const JOINTS = [

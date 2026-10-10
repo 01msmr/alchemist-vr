@@ -1,5 +1,5 @@
-// All tuning knobs in one place. Units: mercury in "doses" (1.0 = what one amalgam needs),
-// temperature normalized 0 (cold) .. 1.
+// The rules of the game: doses, temperatures, timings. Units: mercury in "doses" (1.0 = what one amalgam needs),
+// temperature normalized 0 (cold) .. 1, quality 0..1. See ./index.js for the other config files.
 export const CFG = {
   VIAL_CAPACITY: 2.0, // doses; the target is 1.0, so there is room for a second try
   // The tilt at which pouring starts depends on the fill level (see pourStartAngle): the vial is
@@ -17,14 +17,19 @@ export const CFG = {
 
   // pouring: mercury leaves the lip as drops that fly ballistically
   DROP_AMOUNT: 0.01, // doses per drop
+  // a broken vial scatters its mercury; sulfur grains scatter a little as the fingers open (m/s)
+  SCATTER_SPEED: 0.9,
+  SCATTER_LIFT: 0.4,
+  SCATTER_LIFT_RANGE: 0.6,
+  SCATTER_INHERIT: 0.3, // share of the vial's velocity at the break that the drops keep
+  GRAIN_SPREAD: 0.02,
+  GRAIN_SPREAD_RANGE: 0.03,
+  // spilled substances stay on the table in cells of this size (m); a cell holds this much (doses) before the rest runs to the next
+  PUDDLE_CELL: 0.01,
+  PUDDLE_CELL_MAX: 0.03,
+  PUDDLE_RADIUS_CELLS: 40, // a puddle cannot grow wider than this
   SPILL_MIN: 0.1, // m/s along the spill direction at the start of pouring
   SPILL_RANGE: 0.4, // added at full flow
-
-  // controller analog inputs (0..1), with hysteresis so release is a deliberate loosening
-  SQUEEZE_ON: 0.7,
-  SQUEEZE_OFF: 0.3,
-  PINCH_ON: 0.6,
-  PINCH_OFF: 0.25,
 
   MELT: 0.5, // lead is liquid (accepts mercury) from here
   CRITICAL: 0.85, // glow turns white-yellow: warning
@@ -46,6 +51,7 @@ export const CFG = {
   GRAINS_PER_PINCH: 8,
   SULFUR_MIN: 0.35,
   SULFUR_MAX: 0.75,
+  SULFUR_GAUGE: 1.2, // the ring around the crucible covers 0 .. this many doses of sulfur
   STIR_MIN_SPEED: 0.12, // m/s the rod tip must move inside the crucible
   STIR_NEEDED: 3, // s of stirring
   STIR_DECAY: 0.5, // stirring progress lost per second while not stirring

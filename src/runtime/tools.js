@@ -1,0 +1,240 @@
+import * as THREE from 'three';
+import { CFG, INPUT, LAYOUT, PHYSICS, TOOLS, VIEW } from '../config/index.js';
+import { toGeometry } from '../voxel-mesh.js';
+import { splitGlass, liquidModel, fillLayers, toolSpecFromModel } from '../img2vox/vessel.js';
+import { rodModel, nuggetModel } from '../assets.js';
+import { breakVial } from '../game/sim.js';
+import { clamp01 } from '../util.js';
+import { analog, pulse } from '../vr.js';
+import { tipLocal } from './space.js';
+
+const UP = new THREE.Vector3(0, 1, 0);
+const ONE = new THREE.Vector3(1, 1, 1);
+const Z_AXIS = new THREE.Vector3(0, 0, 1);
+const { grip: GRIP } = PHYSICS;
+const { motion, haptics: H } = INPUT;
+
+// The loose tools the player takes: the vial (a voxelized potion bottle: see-through glass, opaque metal and the
+// liquid inside), the stirring rod and the gold nugget. A tool is held by a mouse (rigidly) or by a hand (with a
+// force-limited grip), or lies free as a rigid body. ctx.bottle.shell is the bottle's voxel model.
+export function createTools(ctx) {
+  const { view, physics } = ctx;
+  const { world, part, remesh, refresh } = view;
+  const mat = new THREE.Matrix4();
+  const scale = new THREE.Vector3();
+  const handPos = new THREE.Vector3();
+  const handQuat = new THREE.Quaternion();
+  const tmp = new THREE.Vector3();
+  const tmpQuat = new THREE.Quaternion();
+  const bottleLayers = fillLayers(ctx.bottle.shell); // layers the liquid can fill
+
+  function makeTool(id, extra, spec = TOOLS[id]) {
+    const group = new THREE.Group();
+    group.visible = false;
+    world.add(group);
+    const mesh = part(group);
+    mesh.position.y = -spec.half.y; // models have their origin at the bottom, the body at the center
+    return {
+      id, spec, group, mesh,
+      ph: physics.addTool(spec, extra),
+      pickMeshes: [mesh], // what a mouse click can hit
+      active: false,
+      holder: null, // null | 'mouse' | hand index
+      pos: new THREE.Vector3(),
+      quat: new THREE.Quaternion(),
+      up: new THREE.Vector3(0, 1, 0),
+      // motion of a mouse-held tool, handed to the physics when it is let go
+      lin: new THREE.Vector3(),
+      ang: new THREE.Vector3(),
+      prevPos: new THREE.Vector3(),
+      prevQuat: new THREE.Quaternion(),
+      trackValid: false,
+      // where a hand wants it, and how that target moves
+      gripPos: new THREE.Vector3(),
+      gripQuat: new THREE.Quaternion(),
+      gripVel: new THREE.Vector3(),
+      prevGripPos: new THREE.Vector3(),
+      gripTrackValid: false,
+      grabOffset: new THREE.Vector2(), // mouse: pointer to tool offset
+    };
+  }
+
+  const vialSpec = { ...TOOLS.vial, ...toolSpecFromModel(ctx.bottle.shell, LAYOUT.voxel) };
+  const tools = {
+    vial: makeTool('vial', { onBreak: (pos, vel) => onVialBreak(pos, vel) }, vialSpec),
+    rod: makeTool('rod'),
+    nugget: makeTool('nugget'),
+  };
+  const list = Object.values(tools);
+  remesh(tools.rod.mesh, rodModel());
+
+  // the vial: metal (the tool's own mesh) and liquid are opaque, the glass is see-through and drawn after them
+  const parts = splitGlass(ctx.bottle.shell);
+  remesh(tools.vial.mesh, parts.metal);
+  const glass = new THREE.Mesh(toGeometry(parts.glass, LAYOUT.voxel), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: VIEW.glass.opacity, depthWrite: false }));
+  glass.position.y = -vialSpec.half.y;
+  glass.renderOrder = 1;
+  tools.vial.group.add(glass);
+  tools.vial.pickMeshes.push(glass);
+  const liquid = part(tools.vial.group);
+  liquid.position.y = -vialSpec.half.y;
+
+  function onVialBreak(pos, vel) {
+    deactivate(tools.vial);
+    ctx.dropWorld.scatter(pos, vel, breakVial(ctx.state));
+  }
+
+  function spawn(t, pos, quat = new THREE.Quaternion()) {
+    t.ph.spawn(pos, quat);
+    t.pos.copy(pos);
+    t.quat.copy(quat);
+    t.up.copy(UP).applyQuaternion(quat);
+    t.active = true;
+    t.holder = null;
+    t.trackValid = false;
+    t.gripTrackValid = false;
+    t.group.visible = true;
+  }
+
+  // put a tool where it starts: standing on the table, or lying along x
+  function spawnAtRest(id) {
+    const t = tools[id];
+    const r = LAYOUT.rest[id];
+    const pos = new THREE.Vector3(r.x, r.lying ? t.spec.half.x : t.spec.half.y, r.z);
+    spawn(t, pos, r.lying ? new THREE.Quaternion().setFromAxisAngle(Z_AXIS, Math.PI / 2) : new THREE.Quaternion());
+  }
+
+  // takes the tool out of the game (and out of any hand)
+  function deactivate(t) {
+    if (typeof t.holder === 'number') {
+      const hand = ctx.hands[t.holder];
+      if (hand) {
+        hand.held = null;
+        hand.tool = null;
+        hand.holdMode = null;
+      }
+    }
+    t.holder = null;
+    t.active = false;
+    t.ph.remove();
+    t.group.visible = false;
+  }
+
+  // Velocity of a mouse-held tool (smoothed), so a release throws, drops or sets it down like the hand moved.
+  function trackMouse(t, dt) {
+    if (t.trackValid && dt > 0) {
+      t.lin.lerp(tmp.subVectors(t.pos, t.prevPos).divideScalar(dt), motion.smoothing).clampLength(0, motion.maxSpeed);
+      tmpQuat.copy(t.prevQuat).invert().premultiply(t.quat); // rotation since the last frame
+      if (tmpQuat.w < 0) tmpQuat.set(-tmpQuat.x, -tmpQuat.y, -tmpQuat.z, -tmpQuat.w);
+      const s = Math.sqrt(Math.max(0, 1 - tmpQuat.w * tmpQuat.w));
+      const angle = 2 * Math.acos(Math.min(1, tmpQuat.w));
+      tmp.set(tmpQuat.x, tmpQuat.y, tmpQuat.z).multiplyScalar(s > 1e-6 ? angle / s / dt : 0);
+      t.ang.lerp(tmp, motion.smoothing).clampLength(0, motion.maxSpin);
+    } else {
+      t.lin.set(0, 0, 0);
+      t.ang.set(0, 0, 0);
+    }
+    t.prevPos.copy(t.pos);
+    t.prevQuat.copy(t.quat);
+    t.trackValid = true;
+  }
+
+  // Motion of the target a hand wants the tool at (for the damping of the grip spring).
+  function trackHand(t, dt) {
+    if (t.gripTrackValid && dt > 0) t.gripVel.lerp(tmp.subVectors(t.gripPos, t.prevGripPos).divideScalar(dt), motion.smoothing).clampLength(0, motion.maxSpeed);
+    else t.gripVel.set(0, 0, 0);
+    t.prevGripPos.copy(t.gripPos);
+    t.gripTrackValid = true;
+  }
+
+  function release(t) {
+    if (t.holder === null) return;
+    if (t.holder === 'mouse') {
+      t.ph.release(t.lin, t.ang);
+    } else {
+      const hand = ctx.hands[t.holder];
+      if (hand) {
+        hand.held = null;
+        hand.tool = null;
+        hand.holdMode = null;
+      }
+      t.ph.endGrip(); // keeps the velocity the tool has: it drops, tips, rolls or breaks
+    }
+    t.holder = null;
+    t.trackValid = false;
+    t.gripTrackValid = false;
+  }
+
+  // A tool slipped out of the hand (grip too weak for the weight and motion, or pulled too far away).
+  function lose(t, hand) {
+    t.ph.endGrip();
+    hand.held = null;
+    hand.tool = null;
+    hand.holdMode = null;
+    t.holder = null;
+    t.gripTrackValid = false;
+    pulse(hand, H.slip.strength, H.slip.ms);
+  }
+
+  // Where each hand wants the tool it holds: a fist settles it into the natural hold, a pinch pulls the pinched point.
+  function updateHandTargets() {
+    for (const hand of ctx.hands) {
+      if (hand.held !== 'tool') continue;
+      const t = hand.tool;
+      const g = hand.grab;
+      if (hand.holdMode === 'fist') {
+        const k = Math.min(1, (ctx.clock.elapsedTime - g.t0) / INPUT.snapTime);
+        const e = k * k * (3 - 2 * k);
+        mat.compose(handPos.lerpVectors(g.fromPos, g.toPos, e), handQuat.slerpQuaternions(g.fromQuat, g.toQuat, e), ONE);
+        mat.premultiply(hand.grip.matrixWorld).premultiply(view.worldInv).decompose(t.gripPos, t.gripQuat, scale);
+      } else {
+        tipLocal(view, hand, t.gripPos); // the fingertips pull the pinched point along
+        mat.copy(hand.grip.matrixWorld).premultiply(view.worldInv).decompose(handPos, handQuat, scale);
+        t.gripQuat.copy(handQuat).multiply(g.fromQuat);
+      }
+    }
+  }
+
+  // The physics for one frame: the mouse holds a tool rigidly, a hand holds it with a force-limited grip.
+  function stepPhysics(dt) {
+    for (const t of list) {
+      if (!t.active) continue;
+      if (t.holder === 'mouse') {
+        t.ph.setPose(t.pos, t.quat);
+        trackMouse(t, dt);
+      } else if (t.holder !== null) {
+        const hand = ctx.hands[t.holder];
+        const { pinch, squeeze } = analog(hand);
+        const floor = INPUT.gripStrengthFloor;
+        trackHand(t, dt);
+        t.ph.setGrip(t.gripPos, t.gripVel, t.gripQuat, clamp01(((hand.holdMode === 'fist' ? squeeze : pinch) - floor) / (1 - floor)));
+      }
+    }
+    physics.step(dt);
+    for (const t of list) {
+      if (!t.active) continue;
+      if (typeof t.holder === 'number' && t.ph.gripSeparation() > GRIP[ctx.hands[t.holder].holdMode].lose) lose(t, ctx.hands[t.holder]);
+      if (t.holder !== 'mouse') t.ph.readPose(t.pos, t.quat);
+    }
+    for (const t of list) {
+      if (!t.active) continue;
+      t.up.copy(UP).applyQuaternion(t.quat);
+      t.group.position.copy(t.pos);
+      t.group.quaternion.copy(t.quat);
+    }
+  }
+
+  // The look that depends on the state: the liquid layers in the vial, the kind of gold in the nugget.
+  function refreshLook(state) {
+    if (tools.vial.active) {
+      const lit = Math.ceil(Math.min(1, state.vial.fill / CFG.VIAL_CAPACITY) * bottleLayers - 1e-9); // layers with liquid
+      refresh('vial', lit, liquid, () => liquidModel(ctx.bottle.shell, lit / bottleLayers));
+    }
+    if (tools.nugget.active && state.nugget) {
+      const kind = state.nugget.kind;
+      refresh('nugget', kind, tools.nugget.mesh, () => nuggetModel(kind));
+    }
+  }
+
+  return { tools, list, spawn, spawnAtRest, deactivate, release, lose, updateHandTargets, stepPhysics, refreshLook };
+}

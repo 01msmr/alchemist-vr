@@ -1,9 +1,8 @@
 import * as THREE from 'three';
+import { INPUT } from './config/index.js';
 
-// Interaction points in the grip space (-Z is forward out of the controller). Both are unverified for
-// Quest controllers: if the fingertips sit off the real controller, tune them.
-export const TIP_Z = 0.08; // pinch point, where thumb and index fingertip meet
-export const PALM_Z = 0.02; // center of the closed hand
+// The controller-side hand visuals. The pinch point is INPUT.controller.tipZ in front of the grip origin.
+const TIP_Z = INPUT.controller.tipZ;
 
 const PAD_IDLE = new THREE.Color(0xf0c8a8);
 const PAD_ACTIVE = new THREE.Color(0xe53935);

@@ -1,24 +1,29 @@
-import { CFG } from './config.js';
+import { CFG } from '../config/index.js';
+import { LEVELS } from './levels/index.js';
 
-const clamp01 = (v) => Math.min(1, Math.max(0, v));
+// The state of the game and its rules, as plain functions on a plain object (no rendering, no input).
+// Everything level specific (what the crucible accepts, the reactions) is in ./levels/.
 
 export function createState() {
   return {
     vial: { fill: CFG.VIAL_CAPACITY },
     flow: 0, // current pour rate, for the stream visual
-    crucible: { content: 'lead', temp: 0, mercury: 0, quality: null, sulfur: 0, stir: 0 },
-    level: 1,
-    tidyIn: null, // seconds until level 1's objects are cleared away, once the amalgam exists
-    nugget: null, // the gold taken out of the crucible: { kind, quality }
+    vialBroken: false,
+    crucible: { content: 'lead', temp: 0, amounts: {}, quality: null, stir: 0 }, // amounts: substance -> doses in it
     progress: {}, // reaction id -> seconds the condition has held
     wasted: 0,
-    vialBroken: false,
+    level: 1,
+    tidyIn: null, // seconds until the finished level's objects are cleared away
+    nugget: null, // the gold taken out of the crucible: { kind, quality }
     candleLit: false,
     matches: CFG.MATCHES, // left in the box
     match: null, // match in hand: { lit: seconds left burning (0 = unlit), stroke: m of fast stroke so far, broken: head snapped off }
   };
 }
 
+export const levelOf = (s) => LEVELS[s.level - 1];
+
+// ---- matches and the candle ----
 export function takeMatch(s) {
   if (s.match || s.matches <= 0) return false;
   s.matches--;
@@ -64,97 +69,7 @@ export function snuffCandle(s) {
   s.candleLit = false;
 }
 
-// 1 in the middle of a window, 0 at its edges
-const windowScore = (value, min, max) => clamp01(1 - Math.abs(value - (min + max) / 2) / ((max - min) / 2));
-export const heatScore = (temp) => windowScore(temp, CFG.MELT, CFG.BURN);
-
-// Hidden quality of the amalgam: how close the dose and the heat were to the middle of their windows.
-export function amalgamQuality(c) {
-  return 0.5 * windowScore(c.mercury, CFG.DOSE_MIN, CFG.DOSE_MAX) + 0.5 * heatScore(c.temp);
-}
-
-// Hidden quality of the gold: the amalgam it came from, the sulfur dose and the heat.
-export function goldQuality(c) {
-  return 0.4 * (c.quality ?? 0) + 0.3 * windowScore(c.sulfur, CFG.SULFUR_MIN, CFG.SULFUR_MAX) + 0.3 * heatScore(c.temp);
-}
-
-const sulfurOk = (c) => c.sulfur >= CFG.SULFUR_MIN && c.sulfur <= CFG.SULFUR_MAX;
-
-// One row per reaction: when the condition has held for `hold` seconds, apply the outcome.
-// Failures are rows too; they do something, they never block.
-export const REACTIONS = [
-  {
-    id: 'sludge',
-    when: (c) => c.content === 'lead' && c.mercury > CFG.DOSE_MAX,
-    hold: 0,
-    apply: (c) => { c.content = 'sludge'; c.quality = 0; },
-  },
-  {
-    id: 'burn',
-    when: (c) => c.content === 'lead' && c.temp >= CFG.BURN,
-    hold: CFG.BURN_HOLD,
-    apply: (c) => { c.content = 'burnt'; c.quality = 0; },
-  },
-  {
-    id: 'amalgam',
-    when: (c) => c.content === 'lead' && c.temp >= CFG.MELT && c.mercury >= CFG.DOSE_MIN && c.mercury <= CFG.DOSE_MAX,
-    hold: CFG.AMALGAM_HOLD,
-    apply: (c) => { c.content = 'amalgam'; c.quality = amalgamQuality(c); },
-  },
-  // level 2
-  {
-    id: 'slag',
-    when: (c) => c.content === 'amalgam' && c.sulfur > CFG.SULFUR_MAX,
-    hold: 0,
-    apply: (c) => { c.content = 'slag'; c.quality = 0; },
-  },
-  {
-    id: 'burn2',
-    when: (c) => c.content === 'amalgam' && c.sulfur > 0 && c.temp >= CFG.BURN,
-    hold: CFG.BURN_HOLD,
-    apply: (c) => { c.content = 'burnt'; c.quality = 0; },
-  },
-  {
-    id: 'gold',
-    when: (c) => c.content === 'amalgam' && sulfurOk(c) && c.temp >= CFG.MELT && c.stir >= CFG.STIR_NEEDED,
-    hold: 0,
-    apply: (c) => {
-      c.quality = goldQuality(c);
-      c.content = c.quality >= CFG.GOLD_MIN ? 'gold' : c.quality >= CFG.DULL_MIN ? 'dull' : 'fools';
-    },
-  },
-  {
-    id: 'lumps', // right dose, right heat, never stirred: it clumps into fool's gold
-    when: (c) => c.content === 'amalgam' && sulfurOk(c) && c.temp >= CFG.MELT,
-    hold: CFG.LUMP_HOLD,
-    apply: (c) => { c.content = 'fools'; c.quality = 0.2; },
-  },
-];
-
-const rad = (deg) => (deg * Math.PI) / 180;
-
-// Tilt angle (radians) at which mercury starts to spill, for a given fill. A full vial spills
-// at a small angle, a nearly empty one needs a steep tilt.
-export function pourStartAngle(fill) {
-  const level = (fill / CFG.VIAL_CAPACITY) * CFG.VIAL_FILL_HEIGHT;
-  const angle = Math.atan2(CFG.VIAL_HEIGHT - level, CFG.VIAL_INNER_DIAMETER);
-  return Math.min(rad(CFG.POUR_ANGLE_MAX_DEG), Math.max(rad(CFG.POUR_ANGLE_MIN_DEG), angle));
-}
-
-// Pour from the vial for dt seconds with the vial tilted by `angle` radians from upright.
-// The flow eases toward its target (inertia). Returns the amount that left the vial; it becomes drops.
-export function pour(s, dt, angle) {
-  const { vial } = s;
-  const start = pourStartAngle(vial.fill);
-  const target = vial.fill > 0 ? CFG.POUR_MAX_RATE * Math.min(1, Math.max(0, (angle - start) / rad(CFG.FLOW_SPAN_DEG))) : 0;
-  const tau = target > s.flow ? CFG.FLOW_RISE_TAU : CFG.FLOW_FALL_TAU;
-  s.flow += (target - s.flow) * (1 - Math.exp(-dt / tau));
-  if (vial.fill <= 0 || (target === 0 && s.flow < 0.005)) s.flow = 0;
-  const poured = Math.min(vial.fill, s.flow * dt);
-  vial.fill -= poured;
-  return poured;
-}
-
+// ---- the vial ----
 // The vial broke: its mercury is gone from the vial (the caller spills it as drops). Returns the amount.
 export function breakVial(s) {
   const spilled = s.vial.fill;
@@ -164,28 +79,19 @@ export function breakVial(s) {
   return spilled;
 }
 
-// A grain of sulfur reached the crucible mouth. Only the amalgam takes it.
-export function landSulfur(s, amount) {
+// ---- the crucible ----
+// A drop of `kind` reached the crucible mouth. The level decides whether the crucible takes it; otherwise it is wasted.
+export function landSubstance(s, kind, amount) {
   const c = s.crucible;
-  if (c.content === 'amalgam') c.sulfur += amount;
+  if (levelOf(s).accepts[kind]?.(c)) c.amounts[kind] = (c.amounts[kind] ?? 0) + amount;
   else s.wasted += amount;
 }
 
 // The rod tip moved inside the crucible (stirring) or not: stirring builds up, standing still lets it fade.
 export function stirCrucible(s, dt, stirring) {
   const c = s.crucible;
-  if (stirring && c.content === 'amalgam' && c.sulfur > 0 && c.temp >= CFG.MELT) c.stir += dt;
+  if (stirring && levelOf(s).stirs?.(c)) c.stir += dt;
   else c.stir = Math.max(0, c.stir - CFG.STIR_DECAY * dt);
-}
-
-// Level 1 ends a moment after the amalgam exists (paused while the vial is in a hand). Returns true once.
-export function advanceLevel(s, dt, vialHeld) {
-  if (s.level !== 1 || s.crucible.content !== 'amalgam') return false;
-  if (s.tidyIn === null) s.tidyIn = CFG.TIDY_DELAY;
-  if (!vialHeld) s.tidyIn -= dt;
-  if (s.tidyIn > 0) return false;
-  s.level = 2;
-  return true;
 }
 
 // Take the finished gold out of the crucible. Returns { kind, quality } or null.
@@ -194,18 +100,26 @@ export function takeNugget(s) {
   if (!['gold', 'dull', 'fools'].includes(c.content) || s.nugget) return null;
   s.nugget = { kind: c.content, quality: c.quality };
   c.content = 'empty';
-  c.sulfur = 0;
+  c.amounts = {};
   c.stir = 0;
   return s.nugget;
 }
 
-// A drop of mercury reached the crucible mouth. Only liquid lead takes it; otherwise it beads off.
-export function landMercury(s, amount) {
-  const c = s.crucible;
-  if (c.content === 'lead' && c.temp >= CFG.MELT) c.mercury += amount;
-  else s.wasted += amount;
+// A level ends a moment after it is complete (the countdown waits while `held`, e.g. the vial is in a hand).
+// Returns the next level, once, when it is time to move on; null otherwise.
+export function advanceLevel(s, dt, held) {
+  const next = LEVELS[s.level];
+  if (!next || !levelOf(s).complete(s)) return null;
+  if (s.tidyIn === null) s.tidyIn = CFG.TIDY_DELAY;
+  if (!held) s.tidyIn -= dt;
+  if (s.tidyIn > 0) return null;
+  s.level = next.id;
+  s.tidyIn = null;
+  s.progress = {};
+  return next;
 }
 
+// Advance the world by dt: the match burns, the candle heats the crucible, the level's reactions run.
 export function step(s, dt) {
   const c = s.crucible;
 
@@ -216,7 +130,7 @@ export function step(s, dt) {
 
   c.temp = s.candleLit ? Math.min(1, c.temp + CFG.HEAT_RATE * dt) : Math.max(0, c.temp - CFG.COOL_RATE * dt);
 
-  for (const r of REACTIONS) {
+  for (const r of levelOf(s).reactions) {
     if (!r.when(c)) {
       s.progress[r.id] = 0;
       continue;

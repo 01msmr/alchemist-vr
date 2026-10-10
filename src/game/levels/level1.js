@@ -1,0 +1,63 @@
+import { CFG } from '../../config/index.js';
+import { amalgamQuality } from '../scoring.js';
+import { pourStartAngle } from '../pouring.js';
+
+const mercury = (c) => c.amounts.hg ?? 0;
+
+// Level 1: lead + mercury (+ heat) = amalgam. A level is data: what the crucible accepts, the reactions,
+// when it is complete, which objects it brings, what the gauge and the status lines show.
+export const level1 = {
+  id: 1,
+  title: 'Lead and mercury',
+
+  // substances the crucible takes from falling drops (everything else is wasted)
+  accepts: { hg: (c) => c.content === 'lead' && c.temp >= CFG.MELT },
+
+  // One row per reaction: when the condition has held for `hold` seconds, apply the outcome.
+  // Failures are rows too; they do something, they never block.
+  reactions: [
+    {
+      id: 'sludge',
+      when: (c) => c.content === 'lead' && mercury(c) > CFG.DOSE_MAX,
+      hold: 0,
+      apply: (c) => { c.content = 'sludge'; c.quality = 0; },
+    },
+    {
+      id: 'burn',
+      when: (c) => c.content === 'lead' && c.temp >= CFG.BURN,
+      hold: CFG.BURN_HOLD,
+      apply: (c) => { c.content = 'burnt'; c.quality = 0; },
+    },
+    {
+      id: 'amalgam',
+      when: (c) => c.content === 'lead' && c.temp >= CFG.MELT && mercury(c) >= CFG.DOSE_MIN && mercury(c) <= CFG.DOSE_MAX,
+      hold: CFG.AMALGAM_HOLD,
+      apply: (c) => { c.content = 'amalgam'; c.quality = amalgamQuality(c); },
+    },
+  ],
+
+  complete: (s) => s.crucible.content === 'amalgam',
+
+  // the objects of this level; the ones that were there before and are not here any more are cleared away
+  scene: { tools: ['vial'], props: [] },
+
+  // the rings around the crucible mouth: the dose window, the fill, and two progress arcs
+  gauge: {
+    substance: 'hg',
+    window: [CFG.DOSE_MIN, CFG.DOSE_MAX],
+    scale: CFG.VIAL_CAPACITY, // the ring covers 0 .. scale doses
+    hold: { from: 'progress', id: 'amalgam', seconds: CFG.AMALGAM_HOLD },
+    danger: { id: 'burn', seconds: CFG.BURN_HOLD },
+  },
+
+  // the level's lines of the status panel; info: { puddleTotal }
+  status(s, info) {
+    const c = s.crucible;
+    return [
+      s.vialBroken
+        ? `vial BROKEN (R or B/Y resets)  mess ${info.puddleTotal.toFixed(2)}`
+        : `vial ${s.vial.fill.toFixed(2)} pours from ${Math.round((pourStartAngle(s.vial.fill) * 180) / Math.PI)} deg  wasted ${s.wasted.toFixed(2)} (on the table ${info.puddleTotal.toFixed(2)})`,
+      `crucible: ${c.content}  Hg ${mercury(c).toFixed(2)} (window ${CFG.DOSE_MIN}-${CFG.DOSE_MAX})`,
+    ];
+  },
+};

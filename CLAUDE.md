@@ -8,6 +8,7 @@ Game jam entry (theme: **Magic**). A voxel-style alchemist game in **WebXR VR on
 - Always deliver consolidated full files, not diffs.
 - Do not over-research simple questions.
 - Do not mark things as certain that were not verified (see "Unverified assumptions").
+- Every tunable value lives in `src/config/` (one file per domain: game rules, layout, input, physics, tools, view), never as a literal in a module. Pure logic is test-first (`npm test`); the real game is checked headless with `npm run smoke` (Chromium, scripted mouse, fails on any console error): run both before pushing.
 
 ## Core concept
 - The player is an alchemist who combines and transforms materials at work surfaces (table, wall, floor).
@@ -132,12 +133,16 @@ Run `npm test` (pure logic, TDD) and `npm run dev`; the game is `src/main.js` (r
 - About 3 s after the amalgam forms (and while the vial is not held) the used objects are cleared away; the mess on the table stays. Level 2: sulfur grains (pinch from the dish, 0.35 to 0.75 doses), heat, stir the rod in the crucible 3 s -> gold, dull gold or fool's gold by quality (0.4 amalgam + 0.3 sulfur + 0.3 heat). The gold can be taken out as a nugget. Failures are rows too: sludge, burnt, slag, lumps.
 - All tuning numbers are in `src/game/config.js`; the reaction table is `REACTIONS` in `src/game/sim.js`.
 
-**Code map**
-- `game/`: `sim.js` (state, reactions, pour, levels), `drops.js` (mercury and sulfur drops fly ballistically), `puddles.js` (persistent mess), `stir.js`, `geometry.js`, `config.js`.
-- `physics.js` + `tools.js`: cannon-es rigid bodies for the loose tools (vial, rod, nugget) and dropped matches. A hand holds a tool with a force-limited spring (capacity = weight x contact x press strength), so half grabs and loosened fingers slip; a mouse holds it rigidly. The vial breaks above 2.2 m/s.
-- `tracking.js` + `vr.js` + `hand.js`: hand tracking is the main input, controllers the fallback, both fill the same hand fields (`updateInput`); controller visuals and the hands drawn on a held tool are in `hand.js`.
-- `img2vox/` + `tools/img2vox.mjs`: photo cut-out to voxel shell (see below); `vox.js` parser, `mesher.js` (visible faces + vertex AO), `assets.js` (code-generated models).
+**Code map** (`src/`; `main.js` only composes the pieces and runs the loop, they share one `ctx`)
+- `config/`: all numbers. `game.js` rules (`CFG`), `layout.js` where things are, `input.js` hands/controllers/mouse (`INPUT`), `physics.js`, `tools.js` (`TOOLS`: size, mass, grab radius, break speed), `view.js` colors and sizes; `index.js` re-exports them frozen. Voxel colors are the palette in `palette.js`.
+- `game/` (pure, tested): `sim.js` the state and generic rules (matches, candle, `landSubstance`, `advanceLevel`, `step`), `levels/` one file per level, `pouring.js`, `scoring.js`, `drops.js` (drops fly ballistically), `puddles.js` (persistent mess, per material), `stir.js`, `geometry.js`.
+- `view/`: `scene.js` (renderer, table, camera, static parts), `effects.js` (rings, drops, puddles, grains), `hud.js` (status panel; also the "pinch to reset" target).
+- `runtime/`: `tools.js` (vial, rod, nugget: held by mouse or hand, physics sync), `hands.js` (grabbing, pinch actions), `mouse.js`, `matches.js`, `drops.js` (pouring, grains, spills, puddles), `stirring.js`, `runner.js` (reset and level changes).
+- `physics.js`: cannon-es rigid bodies for the loose tools and dropped matches; a hand holds a tool with a force-limited spring (capacity = weight x contact x press strength), a mouse holds it rigidly; the vial breaks above 2.2 m/s.
+- `tracking.js` + `vr.js` + `hand.js`: hand tracking is the main input, controllers the fallback, both fill the same hand fields (`updateInput`); `props.js` static props (the dish, a source of sulfur); `img2vox/` + `tools/img2vox.mjs` photo to voxel shell; `vox.js`, `mesher.js`, `assets.js` voxel models; `testhook.js` the `?test` hook for the smoke test.
 - Deploy: a push to `main` -> GitHub Action builds, tests and force-pushes `dist/` to the `deploy` branch -> a GitHub webhook tells Plesk, which pulls `deploy` into httpdocs. If Plesk's repository is ever deleted and re-added, its webhook UUID changes: update the webhook URL in the GitHub repo settings.
+
+**Levels are data.** A level file (`game/levels/levelN.js`) holds: `accepts` (which substances the crucible takes from falling drops, as functions of the crucible), `reactions` (rows: `when`, `hold` seconds, `apply`; failures are rows too), `stirs` (optional), `complete(state)`, `scene: { tools, props }` (what the level shows; what the previous level showed and this one does not is cleared away, the mess on the table stays; drops of a substance this level does not accept are cleared too), `gauge` (the rings around the crucible mouth) and `status(state, info)` (its lines of the panel). To add a level: write the file, add it to `levels/index.js`, add numbers to `config/game.js`, new tools to `config/tools.js` + `runtime/tools.js`, new props to `props.js`. Substances are keys of `crucible.amounts`; a prop with a `source` gives out a substance when pinched. The crucible is the only vessel so far; level 3 (a ghost on the wall) will need calibrated surfaces first.
 
 **Vial:** the potion bottle (`src/assets/bottle.vox`, 9 x 16 voxels, 1.2x stretched). Bluish voxels are see-through glass, bronze ones opaque metal, the mercury is real voxels inside (`splitGlass`, `liquidModel` in `img2vox/vessel.js`); a full vial starts pouring at about 45 degrees, an empty one at about 70.
 
