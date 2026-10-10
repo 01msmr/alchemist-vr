@@ -1,4 +1,4 @@
-// Spilled mercury that stays on the table: a grid of 1 cm cells, each holding some amount. A full cell
+// Spilled mercury that stays on the table: a grid of voxel sized cells (0.75 cm), each holding some amount. A full cell
 // passes the surplus to the nearest cell with room, so a spill grows into a round, thin puddle.
 // The sizes are in config/game.js.
 import { CFG } from '../config/index.js';

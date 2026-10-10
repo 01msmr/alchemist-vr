@@ -6,7 +6,7 @@ const table = { w: 2, d: 1, h: 0.85, heightRange: [0.4, 1.4], z: -0.65 };
 const worldOrigin = { x: 0, y: table.h, z: -0.45 }; // in the scene
 
 export const LAYOUT = {
-  voxel: 0.01, // 1 voxel = 1 cm
+  voxel: 0.0075, // 1 voxel = 0.75 cm (was 1 cm: more detail at the same size; the models in assets.js are described in cm)
   table,
   worldOrigin,
   // the table's extent in world-local coordinates

@@ -39,8 +39,8 @@ Game jam entry (theme: **Magic**). A voxel-style alchemist game in **WebXR VR on
 - Wall and floor work: a floor level may use a pedestal at hip height instead of the real floor (back strain), to be decided.
 
 ## Voxel specification
-- One uniform voxel size for everything: **1 voxel = 1 cm** in the world.
-- Sizes (longest edge, in voxels): drop/coin/grain 2–4; bottle/flask/tool 8–12; frog/cat/ghost 12–19 (target 16); prince/zombie 19–24.
+- One uniform voxel size for everything: **1 voxel = 0.75 cm** in the world (`LAYOUT.voxel`; it was 1 cm, changed for more detail at the same size). The code-made models in `assets.js` are described in cm and sampled on the voxel grid, so they keep their size at any voxel size; the vial is `bottle.vox` redrawn at 4/3 the resolution (`npm run relathe-vox`, 9 x 16 -> 12 x 21 voxels, same palette; not idempotent: it scales again on every run).
+- Sizes (longest edge, in voxels at 0.75 cm; the old 1 cm numbers x 4/3): drop/coin/grain 3–5; bottle/flask/tool 11–16; frog/cat/ghost 16–25 (target 21); prince/zombie 25–32. Puddle cells follow the voxel grid (`CFG.PUDDLE_CELL`, area per amount kept).
 - Table: at least 2 × 1 m (200 × 100 voxels), size is a data value, not a constant.
 - Pixel look comes from **geometry**, not from low-res upscaling: flat colors, per-vertex AO from neighbor voxels, MSAA, foveation. No post-processing, no real-time shadows (blob shadows), no transparency except the vial's glass (see-through, drawn after the opaque liquid and metal inside it).
 - Game logic does NOT calculate in voxels (fill amounts, drops, weights in own units). Voxels are display only.
@@ -69,7 +69,7 @@ Game jam entry (theme: **Magic**). A voxel-style alchemist game in **WebXR VR on
 - Float: object follows the tip with delay/wobble, level sets delay and wobble.
 - Reshape: a few prefab target shapes per material, blended by voxel morph (same technique as frog > prince): match both voxel sets to equal count, sort by height or Hilbert curve, 1:1 interpolation plus noise.
 - Precision per tool via input, not physics: motion scaling (tweezers 0.3, paw 1:1 plus strong smoothing), One-Euro filter, grab radius, optional tremor on the **virtual hand only**, never camera jitter.
-- Hints as symbols on objects (text is unreadable at 1 cm voxels).
+- Hints as symbols on objects (text is unreadable at 0.75 cm voxels).
 
 ## Verbs (6–8, jam scope)
 heat, cool, stir, grind, fill, float, reshape, animate. Later/optional: calm/banish, draw runes, light, wind.
@@ -110,7 +110,15 @@ Every stage ends with something testable in the headset.
 - 7 partly: desktop fallback and failure states exist; no itch.io test, no hints as symbols yet.
 
 ## Image to voxel
-`npm run img2vox -- <cut-out.png> <out.vox> --height 13 --colors 10 --crop-top 0.155 --stretch 1.2 --preview preview.png` (`--stretch` makes it taller, not wider; the vial uses 1.2) revolves the silhouette of a transparent-background photo (round objects: bottles, vases, flasks) into a hollow 1-voxel shell with colors picked from the photo (`src/img2vox/`). The mercury vial is such a model (`src/assets/bottle.vox`, from a potion bottle photo, stopper cropped off): its collision box and grab size come from the model, its liquid window is drawn on the shell (`vesselModel`). Keep source photos out of git (rights); commit only the derived `.vox`. Not built, only when needed: front + side photos as a visual hull for asymmetric objects.
+`npm run img2vox -- <cut-out.png> <out.vox> --height 13 --colors 10 --crop-top 0.155 --stretch 1.2 --preview preview.png` (`--stretch` makes it taller, not wider; the vial uses 1.2) revolves the silhouette of a transparent-background photo (round objects: bottles, vases, flasks) into a hollow 1-voxel shell with colors picked from the photo (`src/img2vox/`). The mercury vial is such a model (`src/assets/bottle.vox`, from a potion bottle photo, stopper cropped off; made at 1 cm voxels with the command above, then redrawn at 4/3 with `npm run relathe-vox -- bottle.vox bottle.vox --factor 1.3333333` when the voxel became 0.75 cm; to make it finer from the photo, run img2vox again with `--height` 17 and `--stretch` as above): its collision box and grab size come from the model, its liquid window is drawn on the shell (`vesselModel`). Keep source photos out of git (rights); commit only the derived `.vox`. Not built, only when needed: front + side photos as a visual hull for asymmetric objects.
+
+## 3D model to voxel
+`npm run mesh2vox -- model.glb out.vox --height 21 --colors 24 [--hollow] [--up y|z] [--preview p.png]` (`src/mesh2vox/`, `tools/mesh2vox.mjs`) voxelizes a `.glb` (positions, node transforms, base color factor, vertex colors, PNG textures; no `.gltf` with separate files, no strips or fans, no skins) or `.obj` (+ `.mtl` Kd colors, PNG `map_Kd`) at `--height` voxels (the y extent; width and depth follow), solid by default or a one voxel shell with `--hollow`, `--up z` for Z-up exports (Rhino, CAD), colors reduced to `--colors` with the same k-means as img2vox. Every voxel takes the average color of the triangles in it. Not verified on a real model yet (only on generated cubes and a hand-made GLB in `test/mesh2vox.test.js`); thin parts (handles, ears) can be lost at 16–25 voxels. Keep source models out of git (rights); commit only the `.vox`.
+Planned alternative by hand (decided by Uli): any format -> Rhino (scale to the target height in voxels, export OBJ) -> Goxel (import OBJ, export `.vox`). Unverified: Goxel's OBJ import and whether it runs on macOS 27; textures are probably lost; the result needs the game palette (24–32 colors).
+
+## Planned (decided by Uli, not built)
+- **Shelf for objects:** later the player has to choose objects instead of only combining given ones; also a spare shelf for easy difficulty levels (spare vials; hard = none, only the restart). Not built: decide first how many spares and what a break costs.
+- **Settings console** along the table's right edge (one row per setting, the options of a row side by side, buttons recessed in the table, lit, pushed in when active): dark/light mode; background (historical alchemist lab, workbench or horse stable) as three illuminated push buttons with icons; three difficulty levels as a rotary switch (left 45 degrees, middle up, right 45 degrees); restart the level by a light bulb hanging from the ceiling with a pull cord. Counterarguments noted: the right edge of a 2 m table is out of arm's reach when standing in the middle; small targets with jittery tracking; the buttons must be excluded from the calibration taps (`nearThing`); a rotary switch is the hardest gesture (poke to cycle is more robust); difficulty has no effect defined yet; three backgrounds are three art scenes; the cord needs a safeguard against accidental restarts.
 
 ## Tooling notes
 - Voxel editor: **MagicaVoxel** (ephtracy, free, macOS) or **Goxel** (macOS). The game needs **`.vox`** files.

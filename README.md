@@ -1,6 +1,6 @@
 # alchemist-vr
 
-A voxel alchemist game for WebXR on Meta Quest (game jam, theme: Magic). You stand at a table, 1 voxel = 1 cm,
+A voxel alchemist game for WebXR on Meta Quest (game jam, theme: Magic). You stand at a table, 1 voxel = 0.75 cm,
 and work with your hands (hand tracking) or controllers (fallback): strike a match, light a candle, melt lead,
 pour mercury, make amalgam, add sulfur, stir, take out the gold. A desktop mouse mode exists for testing.
 

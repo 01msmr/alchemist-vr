@@ -25,9 +25,9 @@ export const CFG = {
   GRAIN_SPREAD: 0.02,
   GRAIN_SPREAD_RANGE: 0.03,
   // spilled substances stay on the table in cells of this size (m); a cell holds this much (doses) before the rest runs to the next
-  PUDDLE_CELL: 0.01,
-  PUDDLE_CELL_MAX: 0.03,
-  PUDDLE_RADIUS_CELLS: 40, // a puddle cannot grow wider than this
+  PUDDLE_CELL: 0.0075, // the voxel grid
+  PUDDLE_CELL_MAX: 0.016875, // a cell holds this much (was 0.03 at 1 cm: the same amount spreads over the same area)
+  PUDDLE_RADIUS_CELLS: 53, // a puddle cannot grow wider than this (about 40 cm)
   SPILL_MIN: 0.1, // m/s along the spill direction at the start of pouring
   SPILL_RANGE: 0.4, // added at full flow
 

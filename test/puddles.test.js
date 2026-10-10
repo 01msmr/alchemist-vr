@@ -9,7 +9,7 @@ test('spilled mercury stays where it landed', () => {
   assert.ok(p.add(0.2, -0.1, 0.01));
   assert.ok(Math.abs(p.total() - 0.01) < 1e-12);
   assert.equal(p.cells.size, 1);
-  assert.ok(p.cells.has('20,-10'));
+  assert.ok(p.cells.has(`${Math.round(0.2 / CELL)},${Math.round(-0.1 / CELL)}`), 'in the cell of that place, whatever its size');
 });
 
 test('a big spill spreads into a wide thin puddle and keeps all its mercury', () => {

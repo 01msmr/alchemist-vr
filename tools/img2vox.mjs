@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import { PNG } from 'pngjs';
 import { latheShell } from '../src/img2vox/lathe.js';
 import { writeVox } from '../src/img2vox/voxwrite.js';
+import { writePreview } from './preview.mjs';
 
 const args = process.argv.slice(2);
 const [input, output] = args.filter((a, i) => !a.startsWith('--') && !(args[i - 1] ?? '').startsWith('--'));
@@ -27,22 +28,4 @@ const count = obj.data.filter(Boolean).length;
 console.log(`${output}: ${obj.size.join(' x ')} voxels, ${count} filled, ${obj.palette.length - 1} colors`);
 
 const previewPath = option('preview', null);
-if (previewPath) {
-  // front view, 40 px per voxel, for a quick look: nearest voxel to the viewer on every column
-  const scale = 40;
-  const [sx, sy, sz] = obj.size;
-  const out = new PNG({ width: sx * scale, height: sy * scale });
-  for (let y = 0; y < sy; y++) {
-    for (let x = 0; x < sx; x++) {
-      let index = 0;
-      for (let z = sz - 1; z >= 0 && !index; z--) index = obj.get(x, y, z);
-      const color = index ? obj.palette[index] : [40, 44, 48];
-      for (let py = 0; py < scale; py++) {
-        for (let px = 0; px < scale; px++) {
-          out.data.set([...color, 255], (((sy - 1 - y) * scale + py) * out.width + x * scale + px) * 4);
-        }
-      }
-    }
-  }
-  fs.writeFileSync(previewPath, PNG.sync.write(out));
-}
+if (previewPath) writePreview(obj, previewPath);

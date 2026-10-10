@@ -2,21 +2,26 @@ import { VoxelObject } from '../voxel-object.js';
 
 const LIQUID = [215, 225, 235]; // mercury
 
-// y layers that belong to the body of the vessel: where it is at least 7 voxels wide (the base layer excluded).
+// y layers that belong to the body of the vessel: where it is at least 70 % as wide as at its widest (the neck is
+// narrower; the base layer is excluded).
 export function bodyLayers(shell) {
   const [sx, sy, sz] = shell.size;
-  const cz = (sz - 1) / 2;
-  const layers = [];
+  const width = [];
   for (let y = 1; y < sy; y++) {
     let minX = sx;
     let maxX = -1;
-    for (let x = 0; x < sx; x++) {
-      if (!shell.get(x, y, cz)) continue;
-      minX = Math.min(minX, x);
-      maxX = x;
+    for (let z = 0; z < sz; z++) {
+      for (let x = 0; x < sx; x++) {
+        if (!shell.get(x, y, z)) continue;
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x);
+      }
     }
-    if (maxX - minX + 1 >= 7) layers.push(y); // extent, not count: the shell is hollow
+    width.push(maxX >= minX ? maxX - minX + 1 : 0); // extent, not count: the shell is hollow
   }
+  const widest = Math.max(0, ...width);
+  const layers = [];
+  width.forEach((w, i) => { if (w >= 0.7 * widest && w > 0) layers.push(i + 1); });
   return layers;
 }
 

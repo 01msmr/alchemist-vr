@@ -3,8 +3,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { parseVox } from './vox.js';
 import { VoxelObject } from './voxel-object.js';
 import { toGeometry } from './voxel-mesh.js';
+import { LAYOUT } from './config/index.js';
 
-const VOXEL = 0.01; // 1 voxel = 1 cm
+const VOXEL = LAYOUT.voxel; // the voxel size of the game
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(devicePixelRatio);

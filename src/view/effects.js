@@ -40,7 +40,7 @@ export function createEffects(view, puddles) {
   gaugeBack(0, 1);
   const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * r.steps) / r.steps;
 
-  // ---- drops in flight: 1 cm voxels, drawn on the 1 cm grid ----
+  // ---- drops in flight: one voxel big, drawn on the voxel grid ----
   const dropColors = { hg: new THREE.Color(VIEW.drops.hg), sulfur: new THREE.Color(VIEW.drops.sulfur) };
   const stream = new THREE.InstancedMesh(new THREE.BoxGeometry(voxel, voxel, voxel), new THREE.MeshBasicMaterial({ color: 0xffffff }), MAX_DROPS);
   stream.setColorAt(0, dropColors.hg);
