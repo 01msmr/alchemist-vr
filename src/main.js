@@ -10,15 +10,25 @@ import { CFG } from './game/config.js';
 import { createPuddles, CELL, MAX_CELL } from './game/puddles.js';
 import { createStirTracker } from './game/stir.js';
 import { tiltDirection, vialLip, tiltAngle, distanceToSegment } from './game/geometry.js';
+import { parseVox } from './vox.js';
+import { vesselModel, bodyLayers, toolSpecFromModel } from './img2vox/vessel.js';
+import bottleUrl from './assets/bottle.vox?url';
 import {
-  vialModel, vialLayers, crucibleModel, crucibleContents, standModel, FLAME_FRAMES, matchModel, matchboxModel,
+  crucibleModel, crucibleContents, standModel, FLAME_FRAMES, matchModel, matchboxModel,
   dishModel, rodModel, nuggetModel,
 } from './assets.js';
-import { setupVR, tipWorld, palmWorld, analog, showGrip, pulse, resetPressed, TIP_Z, PALM_Z } from './vr.js';
+import { setupVR, updateInput, tipWorld, palmWorld, analog, showGrip, pulse, resetPressed } from './vr.js';
+import { holdOffset } from './tracking.js';
 import { createPhysics, GRIP } from './physics.js';
 import { TOOLS } from './tools.js';
 
 const VOXEL = 0.01; // 1 voxel = 1 cm
+
+// The mercury vial is a potion bottle voxelized from a photo (tools/img2vox.mjs). Its collision box and grab
+// size come from the model; its liquid window is drawn on the shell.
+const bottleShell = parseVox(await (await fetch(bottleUrl)).arrayBuffer());
+const bottleLayers = bodyLayers(bottleShell).length;
+const VIAL_SPEC = { ...TOOLS.vial, ...toolSpecFromModel(bottleShell, VOXEL) };
 
 // Table: 2 x 1 m, 0.85 m high. The game lives in `world`, whose origin is on the table top,
 // 45 cm in front of the player (who stands at the XR origin, facing -z).
@@ -51,13 +61,14 @@ const DISH_CENTER = new THREE.Vector3(DISH.x, 0.02, DISH.z);
 const DISH_GRAB_RADIUS = 0.045; // a pinch with the tip this close takes sulfur
 const NUGGET_REACH = 0.045; // pinch above the crucible mouth this close takes the gold
 const MATCH_HEAD_DY = 0.045; // head center above the match model's bottom
+const RESET_REACH = 0.15; // pinching this close to the status panel resets the game
 const MATCH_PINCH_DY = 0.01; // the fingers hold the match this far above its bottom
 const MATCH_BODY_HALF_Y = 0.025; // physics half height of a dropped match
 const HOLD_SNAP_TIME = 0.15; // s, a vial settles into the natural hold
 const MAX_TILT = THREE.MathUtils.degToRad(130); // mouse: Shift + drag range
 
 // where the tools start; the rod lies on the table with its axis along x
-const VIAL_REST = new THREE.Vector3(0.22, TOOLS.vial.half.y, 0.08);
+const VIAL_REST = new THREE.Vector3(0.22, VIAL_SPEC.half.y, 0.08);
 const ROD_REST = new THREE.Vector3(0.3, TOOLS.rod.half.x, -0.06);
 const ROD_REST_QUAT = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI / 2);
 
@@ -209,8 +220,8 @@ function drawHudPanel(lines) {
   g.fillStyle = '#101418';
   g.fillRect(0, 0, hudCanvas.width, hudCanvas.height);
   g.fillStyle = '#dde3ea';
-  g.font = '34px monospace';
-  lines.forEach((line, i) => g.fillText(line, 20, 50 + i * 52));
+  g.font = '26px monospace';
+  lines.forEach((line, i) => g.fillText(line, 16, 38 + i * 44));
   hudTexture.needsUpdate = true;
 }
 
@@ -226,6 +237,7 @@ let hands = [];
 let clock; // created with the render loop
 
 const mat = new THREE.Matrix4();
+const mat2 = new THREE.Matrix4();
 const scaleTmp = new THREE.Vector3();
 const handPos = new THREE.Vector3();
 const handQuat = new THREE.Quaternion();
@@ -259,8 +271,7 @@ const physics = createPhysics({
   onDebrisGone,
 });
 
-function makeTool(id, extra) {
-  const spec = TOOLS[id];
+function makeTool(id, extra, spec = TOOLS[id]) {
   const group = new THREE.Group();
   group.visible = false;
   world.add(group);
@@ -290,7 +301,7 @@ function makeTool(id, extra) {
   };
 }
 const tools = {
-  vial: makeTool('vial', { onBreak: onVialBreak }),
+  vial: makeTool('vial', { onBreak: onVialBreak }, VIAL_SPEC),
   rod: makeTool('rod'),
   nugget: makeTool('nugget'),
 };
@@ -394,12 +405,14 @@ function palmLocal(hand, out) {
 }
 
 // Match: pinched near its bottom, head sticking out 3.5 cm beyond the fingers. Model +y -> grip -Z.
-const MATCH_ATTACH = new THREE.Matrix4()
-  .makeTranslation(0, 0, -(TIP_Z - MATCH_PINCH_DY))
-  .multiply(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
-const MATCH_HEAD_LOCAL = new THREE.Vector3(0, 0, -(TIP_Z - MATCH_PINCH_DY + MATCH_HEAD_DY));
+// The pinch point is wherever the fingertips are in the grip frame (a fixed point for a controller).
+const MATCH_ROTATION = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
+function matchAttach(hand, out) {
+  return out.makeTranslation(hand.tipInGrip.x, hand.tipInGrip.y, hand.tipInGrip.z + MATCH_PINCH_DY).multiply(MATCH_ROTATION);
+}
 function matchHeadLocal(hand, out) {
-  return world.worldToLocal(out.copy(MATCH_HEAD_LOCAL).applyMatrix4(hand.grip.matrixWorld));
+  out.set(hand.tipInGrip.x, hand.tipInGrip.y, hand.tipInGrip.z + MATCH_PINCH_DY - MATCH_HEAD_DY);
+  return world.worldToLocal(out.applyMatrix4(hand.grip.matrixWorld));
 }
 
 // Velocity of a mouse-held tool (smoothed), so a release throws, drops or sets it down like the hand moved.
@@ -492,7 +505,8 @@ function beginGrip(hand, t, mode, point, contact) {
   mat.premultiply(hand.grip.matrixWorld.clone().invert()).decompose(hand.grab.fromPos, hand.grab.fromQuat, scaleTmp);
   if (mode === 'fist' && t.spec.snap === 'upright') {
     // settles into a natural hold: standing through the fist, thumb side up, centered in the palm
-    hand.grab.toPos.set(0, 0, -PALM_Z);
+    const o = holdOffset(hand.mode, hand.handedness, t.spec.radius);
+    hand.grab.toPos.set(o.x, o.y, o.z);
     hand.grab.toQuat.identity();
   } else {
     // keeps the pose it had; a pinch pivots between the fingertips
@@ -528,7 +542,10 @@ function tryGrabTool(hand, mode) {
 // Things a pinch can do other than holding a tool.
 function tryPinchAction(hand) {
   tipLocal(hand, tip);
-  if (matchHolder === null && tip.distanceTo(BOX_CENTER) <= BOX_GRAB_RADIUS && takeMatch(state)) {
+  if (tip.distanceTo(hudPanel.position) <= RESET_REACH) {
+    reset(); // pinching the status panel starts over (a tracked hand has no reset button)
+    hand.pinchOn = true; // still pinching: not a new press
+  } else if (matchHolder === null && tip.distanceTo(BOX_CENTER) <= BOX_GRAB_RADIUS && takeMatch(state)) {
     matchHolder = hand.index;
     hand.held = 'match';
     pulse(hand, 0.3, 20);
@@ -779,7 +796,7 @@ function updatePoses() {
     head.set(matchPos.x, MATCH_Y + MATCH_HEAD_DY, matchPos.z);
   } else if (matchHolder !== null) {
     const hand = hands[matchHolder];
-    mat.copy(hand.grip.matrixWorld).multiply(MATCH_ATTACH).premultiply(worldInv);
+    mat.copy(hand.grip.matrixWorld).multiply(matchAttach(hand, mat2)).premultiply(worldInv);
     mat.decompose(matchMesh.position, matchMesh.quaternion, scaleTmp);
     matchHeadLocal(hand, head);
   }
@@ -823,6 +840,8 @@ function statusLines() {
     lines.push(`crucible: ${c.content}${state.nugget ? `  you hold the ${state.nugget.kind}` : ''}`);
   }
   lines.push(`temp ${c.temp.toFixed(2)} (melt ${CFG.MELT} / burn ${CFG.BURN})` + (c.quality !== null ? `  quality ${c.quality.toFixed(2)}` : ''));
+  // the fingers as the game sees them (mode, pinch, grip): for tuning the recognition on the headset
+  lines.push(hands.map((h) => `${h.handedness[0].toUpperCase()}:${h.mode} p${h.pinch.toFixed(2)} g${h.squeeze.toFixed(2)}`).join('   '));
   return lines;
 }
 
@@ -832,6 +851,7 @@ renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05);
   const time = clock.elapsedTime;
 
+  for (const hand of hands) updateInput(hand);
   for (const hand of hands) if (resetPressed(hand)) reset();
   updateGrips(dt);
   updatePoses();
@@ -865,10 +885,11 @@ renderer.setAnimationLoop(() => {
   }
   for (const hand of hands) { // the hand that holds a tool is drawn on the tool itself
     const holding = hand.held === 'tool';
-    hand.model.group.visible = !holding;
-    hand.fist.group.visible = holding && hand.holdMode === 'fist';
-    hand.pinchGrip.group.visible = holding && hand.holdMode === 'pinch';
-    if (!holding) continue;
+    const drawn = hand.mode === 'controller'; // a tracked hand draws itself
+    hand.model.group.visible = drawn && !holding;
+    hand.fist.group.visible = drawn && holding && hand.holdMode === 'fist';
+    hand.pinchGrip.group.visible = drawn && holding && hand.holdMode === 'pinch';
+    if (!holding || !drawn) continue;
     const t = hand.tool;
     world.worldToLocal(tmp.setFromMatrixPosition(hand.grip.matrixWorld));
     if (hand.holdMode === 'fist') {
@@ -889,7 +910,7 @@ renderer.setAnimationLoop(() => {
   // the vial: lip velocity from its motion (smoothed; the drops inherit it), pouring
   const vial = tools.vial;
   if (vial.active) {
-    lip.copy(vialLip(vial.pos, vial.up));
+    lip.copy(vialLip(vial.pos, vial.up, vial.spec.half.y));
     if (prevLipValid && dt > 0) lipVel.lerp(tmp.subVectors(lip, prevLip).divideScalar(dt).clampLength(0, 4), 0.4);
     else lipVel.set(0, 0, 0);
     prevLip.copy(lip);
@@ -956,8 +977,8 @@ renderer.setAnimationLoop(() => {
   const contents = crucibleContents(c);
   refresh('crucible', JSON.stringify(contents), crucibleMesh, () => crucibleModel(contents));
   if (vial.active) {
-    const layers = vialLayers(state.vial.fill);
-    refresh('vial', layers, vial.mesh, () => vialModel(layers));
+    const lit = Math.ceil(Math.min(1, state.vial.fill / CFG.VIAL_CAPACITY) * bottleLayers - 1e-9); // window layers with liquid
+    refresh('vial', lit, vial.mesh, () => vesselModel(bottleShell, lit / bottleLayers));
   }
   if (tools.nugget.active && state.nugget) {
     const kind = state.nugget.kind;
@@ -997,13 +1018,13 @@ renderer.setAnimationLoop(() => {
   if (renderer.xr.isPresenting) {
     if (time - hudPanelAt > 0.25) {
       hudPanelAt = time;
-      drawHudPanel(lines);
+      drawHudPanel([...lines, 'pinch this panel to reset']);
     }
   } else {
     hud.textContent =
       `matchbox: click for a match, rub it fast over the striker | light candle: lit match at the wick | snuff: click candle\n` +
       `tools: drag with left mouse (vial: Shift + drag up/down tilts) | level 2: click the dish for sulfur, stir with the rod, click the finished gold | reset: R\n` +
-      `VR: grip button = full hand (tool), trigger = pinch (tool, match, sulfur, gold, wick), B/Y = reset\n` +
+      `VR (hands or controllers): closed fist / grip button = full hand (tool), pinch / trigger = two fingers (tool, match, sulfur, gold, wick), pinch the panel / B or Y = reset\n` +
       lines.join('\n');
     controls.update();
   }

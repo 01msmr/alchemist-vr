@@ -3,29 +3,7 @@ import { VoxelObject } from './voxel-object.js';
 import { P, PALETTE } from './palette.js';
 import { CFG } from './game/config.js';
 
-export const VIAL_LAYERS = 9;
 const CRUCIBLE_RADIUS = [2.5, 3.2, 3.8, 4.2, 4.4, 4.5, 4.5];
-
-export function vialLayers(fill) {
-  return fill > 0 ? Math.max(1, Math.ceil((fill / CFG.VIAL_CAPACITY) * VIAL_LAYERS)) : 0;
-}
-
-// 5x11x5 open-top glass vial; the liquid shows in a 3-wide window on the +z side.
-export function vialModel(layers) {
-  const o = VoxelObject.empty(5, 11, 5, PALETTE);
-  for (let y = 0; y < 11; y++) {
-    for (let z = 0; z < 5; z++) {
-      for (let x = 0; x < 5; x++) {
-        if ((x === 0 || x === 4) && (z === 0 || z === 4)) continue; // rounded corners
-        const edge = x === 0 || x === 4 || z === 0 || z === 4;
-        if (y > 0 && !edge) continue; // hollow, open top
-        const window = z === 4 && x >= 1 && x <= 3 && y >= 1 && y <= VIAL_LAYERS;
-        o.set(x, y, z, window ? (y <= layers ? P.MERCURY : P.GLASS_EMPTY) : P.GLASS);
-      }
-    }
-  }
-  return o;
-}
 
 export function leadColor(temp) {
   if (temp >= CFG.CRITICAL) return P.LEAD_CRIT;

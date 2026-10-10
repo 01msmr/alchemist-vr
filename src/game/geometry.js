@@ -1,5 +1,3 @@
-export const VIAL_HALF = 0.055; // pivot at the vial's middle, lip half a vial height above it
-
 // Horizontal unit direction from one point to another; +x if they coincide.
 export function tiltDirection(from, to) {
   const dx = to.x - from.x;
@@ -8,9 +6,9 @@ export function tiltDirection(from, to) {
   return len < 1e-6 ? { x: 1, z: 0 } : { x: dx / len, z: dz / len };
 }
 
-// Position of the vial's lip, given the vial's center and its unit up vector.
-export function vialLip(pos, up) {
-  return { x: pos.x + up.x * VIAL_HALF, y: pos.y + up.y * VIAL_HALF, z: pos.z + up.z * VIAL_HALF };
+// Position of the vial's lip, given the vial's center, its unit up vector and half its height.
+export function vialLip(pos, up, halfHeight) {
+  return { x: pos.x + up.x * halfHeight, y: pos.y + up.y * halfHeight, z: pos.z + up.z * halfHeight };
 }
 
 // Angle (radians) between the vial's up vector and straight up: 0 = upright, PI = upside down.

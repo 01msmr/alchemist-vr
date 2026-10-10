@@ -4,9 +4,9 @@ export const CFG = {
   VIAL_CAPACITY: 2.0, // doses; the target is 1.0, so there is room for a second try
   // The tilt at which pouring starts depends on the fill level (see pourStartAngle): the vial is
   // approximated as a cylinder, and mercury spills once its level reaches the lip.
-  VIAL_HEIGHT: 0.1, // m, inner height
-  VIAL_FILL_HEIGHT: 0.09, // m, level at VIAL_CAPACITY
-  VIAL_INNER_DIAMETER: 0.03, // m
+  VIAL_HEIGHT: 0.16, // m, inner height of the bottle
+  VIAL_FILL_HEIGHT: 0.1, // m, level at VIAL_CAPACITY
+  VIAL_INNER_DIAMETER: 0.05, // m, average over the body and the neck
   POUR_ANGLE_MIN_DEG: 10,
   POUR_ANGLE_MAX_DEG: 100,
   POUR_MAX_RATE: 0.35, // doses per second at full flow

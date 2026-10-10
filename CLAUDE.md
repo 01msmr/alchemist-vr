@@ -21,7 +21,7 @@ Game jam entry (theme: **Magic**). A voxel-style alchemist game in **WebXR VR on
 - **Device:** Meta Quest. Target Quest 3, lower bound Quest 2 (same code path, because there is no passthrough).
 - **Mode:** `immersive-vr` (NOT AR/passthrough). The world is aligned to the real room by manual calibration.
 - **Reference space:** `local-floor`.
-- **Input:** controllers only (no hand tracking). Trigger = `select`, grip = `squeeze`, thumbstick = tool switch. Analog trigger for gentle/firm. Haptics via `gamepad.hapticActuators`.
+- **Input:** hand tracking is the main input (WebXR `hand-tracking`, joints recognised in `src/tracking.js`), controllers are the fallback. Both fill the same hand fields in `src/vr.js` (`updateInput`): pinch (thumb + index fingertip = trigger) and grip (the other fingers = grip button) as analog 0..1, a pinch point, a grasp point, and a grip frame (origin at the palm, -Z along the fingers, +Y toward the thumb side). Game code never asks which one is active. Tracked hands have no haptics and no reset button: pinch the status panel to reset. All joint distances (`PINCH`, `GRIP_CURL`) are unverified on a real Quest; the status panel shows what the game sees per hand.
 - **Player stands.** The world has a fixed 1:1 scale, no zoom, no world dragging.
 - **Fallback:** a desktop variant with mouse for jurors without a headset (late stage).
 - Test early on itch.io (iframe needs `xr-spatial-tracking` permission), and on the device.
@@ -97,6 +97,9 @@ Every stage ends with something testable in the headset.
 6. **Paths 2 and 3 (3–4 days each):** wall calibration, circle drawing, ghost; floor, cat morph, merge gold and ghost.
 7. **Cleanup and delivery (2 days):** extract what repeated, failure states and hints, desktop fallback, itch.io build test (reserve at least half a day).
 - If time runs short, cut from the back: path 3 becomes a short final scene, path 2 simplified, **path 1 stays complete.**
+
+## Image to voxel
+`npm run img2vox -- <cut-out.png> <out.vox> --height 13 --colors 10 --crop-top 0.155 --stretch 1.2 --preview preview.png` (`--stretch` makes it taller, not wider; the vial uses 1.2) revolves the silhouette of a transparent-background photo (round objects: bottles, vases, flasks) into a hollow 1-voxel shell with colors picked from the photo (`src/img2vox/`). The mercury vial is such a model (`src/assets/bottle.vox`, from a potion bottle photo, stopper cropped off): its collision box and grab size come from the model, its liquid window is drawn on the shell (`vesselModel`). Keep source photos out of git (rights); commit only the derived `.vox`. Not built, only when needed: front + side photos as a visual hull for asymmetric objects.
 
 ## Tooling notes
 - Voxel editor: **MagicaVoxel** (ephtracy, free, macOS) or **Goxel** (macOS). The game needs **`.vox`** files.
