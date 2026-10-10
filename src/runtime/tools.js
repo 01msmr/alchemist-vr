@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { CFG, INPUT, LAYOUT, PHYSICS, TOOLS, VIEW } from '../config/index.js';
 import { toGeometry } from '../voxel-mesh.js';
 import { splitGlass, liquidModel, fillLayers, toolSpecFromModel } from '../img2vox/vessel.js';
+import { splitShards } from '../shards.js';
 import { rodModel, nuggetModel } from '../assets.js';
 import { breakVial } from '../game/sim.js';
-import { clamp01 } from '../util.js';
+import { holdStrength, createCrushMeter } from '../game/geometry.js';
 import { createVecFilter, createQuatFilter } from '../filters.js';
 import { analog, pulse } from '../vr.js';
 import { tipLocal } from './space.js';
@@ -58,13 +59,14 @@ export function createTools(ctx) {
       gripTrackValid: false,
       grabOffset: new THREE.Vector2(), // mouse: pointer to tool offset
       // smooths the pose a fist wants the tool at (reset when a hand takes the tool)
+      crush: createCrushMeter(INPUT.crushSeconds), // a fragile tool breaks when squeezed too hard for too long
       fistFilter: { pos: createVecFilter(INPUT.filter.fist.pos), rot: createQuatFilter(INPUT.filter.fist.rot) },
     };
   }
 
   const vialSpec = { ...TOOLS.vial, ...toolSpecFromModel(ctx.bottle.shell, LAYOUT.voxel) };
   const tools = {
-    vial: makeTool('vial', { onBreak: (pos, vel) => onVialBreak(pos, vel) }, vialSpec),
+    vial: makeTool('vial', { onBreak: (pos, vel, quat) => onVialBreak(pos, vel, quat) }, vialSpec),
     rod: makeTool('rod'),
     nugget: makeTool('nugget'),
   };
@@ -82,8 +84,43 @@ export function createTools(ctx) {
   const liquid = part(tools.vial.group);
   liquid.position.y = -vialSpec.half.y;
 
-  function onVialBreak(pos, vel) {
+  // the pieces of the broken vial (voxels cut along two diagonals), cut once
+  const shardParts = splitShards(ctx.bottle.shell, LAYOUT.voxel);
+  const shardMetal = (obj) => new THREE.Mesh(toGeometry(obj, LAYOUT.voxel), view.material);
+  const shardGlass = (obj) => new THREE.Mesh(toGeometry(obj, LAYOUT.voxel), glass.material);
+
+  // Every piece starts where it was in the vial, bursts outward and up, and tumbles.
+  function spawnShards(pos, vel, quat) {
+    const q = tmpQuat.set(quat.x, quat.y, quat.z, quat.w);
+    const S = PHYSICS.shard;
+    shardParts.forEach((shard, i) => {
+      const c = shard.center;
+      const offset = new THREE.Vector3(c.x, c.y - vialSpec.half.y, c.z).applyQuaternion(q); // from the vial's center
+      const out = Math.hypot(offset.x, offset.z) || 1;
+      const lin = {
+        x: vel.x * S.inherit + (offset.x / out) * S.burst,
+        y: vel.y * S.inherit + S.lift * (0.6 + 0.4 * ((i * 0.618) % 1)),
+        z: vel.z * S.inherit + (offset.z / out) * S.burst,
+      };
+      const angle = i * 2.4; // a different tumble for each piece
+      const spin = { x: Math.cos(angle) * S.spin, y: Math.sin(angle * 1.7) * S.spin, z: Math.sin(angle) * S.spin };
+      const group = new THREE.Group();
+      const { metal, glass: glassPart } = splitGlass(shard.obj);
+      for (const [obj, make] of [[metal, shardMetal], [glassPart, shardGlass]]) {
+        if (!obj.data.some((v) => v)) continue;
+        const mesh = make(obj);
+        mesh.position.set(-c.x, -c.y, -c.z); // the group's origin is the piece's middle
+        if (make === shardGlass) mesh.renderOrder = 1;
+        group.add(mesh);
+      }
+      world.add(group);
+      physics.addDebris(tmp.copy(offset).add(pos), q, lin, group, { half: shard.half, mass: S.mass, ttl: S.lifetime, spin });
+    });
+  }
+
+  function onVialBreak(pos, vel, quat) {
     deactivate(tools.vial);
+    spawnShards(pos, vel, quat);
     ctx.dropWorld.scatter(pos, vel, breakVial(ctx.state));
   }
 
@@ -214,7 +251,14 @@ export function createTools(ctx) {
         const { pinch, squeeze } = analog(hand);
         const floor = INPUT.gripStrengthFloor;
         trackHand(t, dt);
-        t.ph.setGrip(t.gripPos, t.gripVel, t.gripQuat, clamp01(((hand.holdMode === 'fist' ? squeeze : pinch) - floor) / (1 - floor)));
+        const closed = hand.holdMode === 'fist' ? squeeze : pinch;
+        hand.grab.closed = Math.max(hand.grab.closed, closed); // closing tighter than at the grab makes the hold firmer
+        // only a full hand squeezes: two fingertips meet whatever the tool, and nothing stops them in VR
+        if (t.spec.crush !== null && hand.holdMode === 'fist' && t.crush.update(closed >= t.spec.crush, dt)) {
+          t.ph.breakNow();
+          continue;
+        }
+        t.ph.setGrip(t.gripPos, t.gripVel, t.gripQuat, holdStrength(closed, hand.grab.closed, floor));
       }
     }
     physics.step(dt);

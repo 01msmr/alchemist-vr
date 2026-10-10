@@ -16,5 +16,7 @@ export const PHYSICS = {
   },
   spring: { kpPerMass: 5000, kdPerMass: 160 }, // N/m and N s/m per kg
   match: { half: { x: 0.005, y: 0.025, z: 0.005 }, mass: 0.002, lifetime: 5 }, // a dropped match, lifetime in s
+  // the pieces of a broken vial: they burst outward and up with the vial's own speed, tumble, lie on the table until the next reset
+  shard: { mass: 0.01, lifetime: Infinity, burst: 0.9, lift: 0.8, spin: 9, inherit: 0.5 }, // kg, s, m/s, m/s, rad/s
   slab: 0.3, // thickness of the table slab (m), thick so nothing falls through
 };

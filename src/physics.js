@@ -191,14 +191,25 @@ export function createPhysics(opts) {
         contactNormal = null;
       },
 
+      // the tool is crushed (in the hand): breaks like an impact, with the speed it has
+      breakNow() {
+        if (!alive) return;
+        const pos = { x: body.position.x, y: body.position.y, z: body.position.z };
+        const vel = { x: body.velocity.x, y: body.velocity.y, z: body.velocity.z };
+        const quat = { x: body.quaternion.x, y: body.quaternion.y, z: body.quaternion.z, w: body.quaternion.w };
+        tool.remove();
+        extra.onBreak?.(pos, vel, quat);
+      },
+
       // impact speed along the contact normal, from the velocity before the solver slowed the tool
       checkBreak() {
         if (!alive || spec.breakSpeed === null || body.type !== CANNON.Body.DYNAMIC || !contactNormal) return;
         if (Math.abs(pre.dot(contactNormal)) <= spec.breakSpeed) return;
         const pos = { x: body.position.x, y: body.position.y, z: body.position.z };
         const vel = { x: pre.x, y: pre.y, z: pre.z };
+        const quat = { x: body.quaternion.x, y: body.quaternion.y, z: body.quaternion.z, w: body.quaternion.w };
         tool.remove();
-        extra.onBreak?.(pos, vel);
+        extra.onBreak?.(pos, vel, quat);
       },
     };
     tools.push(tool);
@@ -215,13 +226,15 @@ export function createPhysics(opts) {
     for (const body of extras.splice(0)) world.removeBody(body);
   }
 
-  function addDebris(pos, quat, lin, data) {
-    const body = new CANNON.Body({ mass: MATCH_MASS, shape: new CANNON.Box(new CANNON.Vec3(MATCH_HALF.x, MATCH_HALF.y, MATCH_HALF.z)) });
+  // Loose pieces on the table: a dropped match by default, or any box (`half`, `mass`, `ttl` seconds, `spin` rad/s).
+  function addDebris(pos, quat, lin, data, { half = MATCH_HALF, mass = MATCH_MASS, ttl = match.lifetime, spin } = {}) {
+    const body = new CANNON.Body({ mass, shape: new CANNON.Box(new CANNON.Vec3(half.x, half.y, half.z)) });
+    if (spin) body.angularVelocity.set(spin.x, spin.y, spin.z);
     body.position.set(pos.x, pos.y, pos.z);
     body.quaternion.set(quat.x, quat.y, quat.z, quat.w);
     body.velocity.set(lin.x, lin.y, lin.z);
     world.addBody(body);
-    const entry = { body, ttl: match.lifetime, data };
+    const entry = { body, ttl, data };
     debris.push(entry);
     return entry;
   }

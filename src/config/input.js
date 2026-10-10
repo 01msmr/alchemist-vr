@@ -24,6 +24,7 @@ export const INPUT = {
   analog: { squeezeOn: 0.7, squeezeOff: 0.3, pinchOn: 0.6, pinchOff: 0.25 },
   // a grip's strength 0..1 runs from `floor` (weakest still holding) to 1
   gripStrengthFloor: 0.3,
+  crushSeconds: 0.2, // a fist squeezing a fragile tool (TOOLS.*.crush) this long breaks it
 
   // how far the hand may be from what it touches
   reach: {
@@ -40,8 +41,9 @@ export const INPUT = {
   // the match: held near its bottom, the head sticks out beyond the fingers
   match: { headDy: 0.045, pinchDy: 0.01 },
 
-  // how well a tool is held: 1 at the axis, less off it; a fist over the end of a tool only half closes on it
-  contact: { offAxisPenalty: 0.6, palmSpan: 0.07, palmReach: 0.035 },
+  // how well a tool is held: (almost) fully anywhere on its volume, a little less at the edge of the grab radius; a fist
+  // over the end of a tool closes less and less on it (full up to its end, nothing `palmReach` beyond it)
+  contact: { offAxisPenalty: 0.1, palmSpan: 0.035, palmReach: 0.035 },
   snapTime: 0.15, // s, a vial settles into the natural hold in the fist
 
   // how fast things move when handed over: the velocity of a hand or a held tool is smoothed and capped, so a

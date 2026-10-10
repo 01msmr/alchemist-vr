@@ -44,7 +44,7 @@ ctx.physics = createPhysics({
   matchbox: { x: matchbox.x, y: matchbox.y + matchbox.height / 2, z: matchbox.z, hx: matchbox.halfX, hy: matchbox.height / 2, hz: matchbox.halfZ },
   onDebrisGone(entry) {
     view.world.remove(entry.data);
-    entry.data.children[0].geometry.dispose();
+    entry.data.children.forEach((child) => child.geometry.dispose()); // the shared materials stay
   },
 });
 ctx.effects = createEffects(view, ctx.puddles);

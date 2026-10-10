@@ -162,6 +162,10 @@ Start here. Run `npm run dev` to play (desktop mouse, or open the Network URL on
 
 **Vial:** the potion bottle (`src/assets/bottle.vox`, 9 x 16 voxels, 1.2x stretched). Bluish voxels are see-through glass, bronze ones opaque metal, the mercury is real voxels inside (`splitGlass`, `liquidModel` in `img2vox/vessel.js`); a full vial starts pouring at about 45 degrees, an empty one at about 70.
 
+**How a tool is grabbed:** anywhere on its volume holds (almost) fully (`gripContact`, `INPUT.contact`; a fist over the end holds less and less); the firmness is the closing of the fingers relative to how far they closed at the grab (`holdStrength`), because a hand around a bottle cannot close as far as around nothing. The fist holds the vial by its center and turns it with the grip frame, so rolling the forearm tilts it. A fist that squeezes the vial at a closure of `TOOLS.vial.crush` (0.97) for `INPUT.crushSeconds` (0.2 s) crushes it like an impact (`breakNow`, the same break as a fall); a pinch never crushes (two fingertips meet whatever the tool, nothing stops them in VR). Unverified: whether a firm, normal fist stays below 0.97 on the Quest.
+
+**A broken vial** (impact or crush) leaves 3 or 4 voxel pieces (`src/shards.js` cuts the bottle model along two diagonal planes, every voxel in one piece, glass see-through and metal opaque as before) next to the mercury drops: they burst outward and up with half the vial's speed, tumble as rigid boxes (`physics.addDebris` with `PHYSICS.shard`), lie on the table until the next reset (R, or the panel).
+
 **Grip stability, measured (see `test/physics.test.js`):** a firm fist holds through a 40 cm swing in 0.3 s and a 30 cm lift in 0.25 s; a flick of 2 m/s or more is let go (the grip cannot accelerate the vial that hard, by design); a half grab (contact 0.3) still slips. The torque cap is not the limit (the needed torque is about 15x below it).
 
 **Unverified on a real Quest:** see the section "Unverified assumptions" above. Tune with the status panel, which shows per hand `mode pinch grip` and the table height.

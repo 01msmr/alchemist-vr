@@ -1,9 +1,8 @@
 import * as THREE from 'three';
 import { INPUT, LAYOUT } from '../config/index.js';
 import { takeNugget, snuffCandle, levelOf } from '../game/sim.js';
-import { distanceToSegment } from '../game/geometry.js';
+import { distanceToSegment, gripContact } from '../game/geometry.js';
 import { PROPS } from '../props.js';
-import { clamp01 } from '../util.js';
 import { holdOffset } from '../tracking.js';
 import { analog, showGrip, pulse } from '../vr.js';
 import { tipLocal, palmLocal } from './space.js';
@@ -35,7 +34,9 @@ export function createHandInput(ctx) {
     hand.holdMode = mode;
     hand.grab.axial = Math.max(-t.spec.axisHalf, Math.min(t.spec.axisHalf, tmp.copy(point).sub(t.pos).dot(t.up)));
     hand.grab.t0 = ctx.clock.elapsedTime;
+    hand.grab.closed = mode === 'fist' ? analog(hand).squeeze : analog(hand).pinch; // how far the fingers closed around it
     t.gripTrackValid = false;
+    t.crush.reset();
     t.fistFilter.pos.reset();
     t.fistFilter.rot.reset();
     // the tool's pose relative to the hand at the moment of grabbing
@@ -71,8 +72,7 @@ export function createHandInput(ctx) {
     }
     if (!best) return false;
     const axial = point.clone().sub(best.pos).dot(best.up);
-    let grabContact = 1 - contact.offAxisPenalty * Math.min(1, bestD / best.spec.grabRadius); // off the axis: only the edge is caught
-    if (mode === 'fist') grabContact *= clamp01((best.spec.axisHalf - Math.abs(axial) + contact.palmReach) / contact.palmSpan); // palm over the end: half in the hand
+    const grabContact = gripContact(bestD, axial, best.spec, contact, mode === 'fist');
     beginGrip(hand, best, mode, point, grabContact);
     return true;
   }

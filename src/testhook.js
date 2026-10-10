@@ -18,6 +18,8 @@ export function installTestHook(ctx) {
     get tableHeight() { return ctx.calibration.height; },
     setTableEdge: (e) => ctx.calibration.setEdge(e),
     get tableEdge() { return ctx.calibration.edge; },
+    breakVial: () => ctx.tools.tools.vial.ph.breakNow(),
+    get shards() { return ctx.physics.debris.length; },
     get worldYaw() { return ctx.view.world.rotation.y; },
     get worldY() { return ctx.view.world.position.y; },
     get floorY() { return ctx.physics.world.bodies.find((b) => b.shapes[0]?.type === 2 /* plane */)?.position.y; },

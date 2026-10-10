@@ -373,3 +373,41 @@ test('the whole hand holds the turn better than two fingers; a weak pinch lets t
   assert.ok(error('pinch', 0.15) > 15, 'a pinch with the same hold hangs');
   assert.ok(error('fist', 1) <= error('pinch', 1), 'at full strength the fist is at least as steady');
 });
+
+test('crushing a tool in the hand breaks it like an impact, once', () => {
+  const { physics, events } = make();
+  physics.vial.position.set(0.2, 0.3, 0);
+  physics.startGrip('fist', { x: 0.2, y: 0.3, z: 0 }, 1);
+  physics.tool.breakNow();
+  physics.tool.breakNow();
+  assert.equal(events.breaks.length, 1);
+  assert.equal(physics.isAlive(), false);
+});
+
+test('a break also reports the orientation the tool had', () => {
+  const quats = [];
+  const { physics } = make();
+  const tool = physics.tool;
+  // make() wires the break to events.breaks(pos, vel); a second tool reports the orientation
+  const other = physics.addTool(TOOLS.vial, { onBreak: (pos, vel, quat) => quats.push(quat) });
+  other.spawn({ x: -0.3, y: 0.3, z: 0 });
+  other.breakNow();
+  assert.equal(quats.length, 1);
+  assert.ok(Math.abs(quats[0].w) <= 1 && 'x' in quats[0]);
+  assert.ok(tool);
+});
+
+test('debris can be any box: shards fall, lie on the table and vanish after their lifetime', () => {
+  const { physics } = make();
+  const gone = [];
+  const entry = physics.addDebris({ x: 0.5, y: 0.2, z: 0 }, { x: 0, y: 0, z: 0, w: 1 }, { x: 0.3, y: 1, z: 0 }, 'shard', {
+    half: { x: 0.01, y: 0.02, z: 0.015 }, mass: 0.01, ttl: 2, spin: { x: 4, y: 0, z: 3 },
+  });
+  assert.equal(entry.ttl, 2);
+  assert.ok(entry.body.angularVelocity.x === 4);
+  run(physics, 1.5);
+  assert.ok(entry.body.position.y > -0.01 && entry.body.position.y < 0.1, 'came to rest on the table');
+  run(physics, 1);
+  assert.equal(physics.debris.length, 0, 'gone after its lifetime');
+  assert.equal(gone.length, 0);
+});

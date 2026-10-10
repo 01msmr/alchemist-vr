@@ -49,7 +49,7 @@ export function setupVR(renderer, scene) {
       tipInGrip: new THREE.Vector3(0, 0, -TIP_Z), // tipPoint in the grip frame
       held: null, holdMode: null,
       // pose of the held tool relative to the hand: blends from where it was grabbed to the natural hold
-      grab: { fromPos: new THREE.Vector3(), fromQuat: new THREE.Quaternion(), toPos: new THREE.Vector3(), toQuat: new THREE.Quaternion(), t0: 0, axial: 0 },
+      grab: { fromPos: new THREE.Vector3(), fromQuat: new THREE.Quaternion(), toPos: new THREE.Vector3(), toQuat: new THREE.Quaternion(), t0: 0, axial: 0, closed: 0 },
       pinchOn: false, squeezeOn: false, resetWasPressed: false,
       model, fist: createFistWrap(), pinchGrip: createPinchGrip(),
     };

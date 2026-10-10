@@ -138,6 +138,15 @@ try {
   await page.waitForFunction(() => window.__game, { timeout: 15000 });
   check(Math.abs((await game(() => window.__game.worldYaw)) - 0.2) < 1e-9, 'the edge is remembered after a reload');
 
+  // 10. a broken vial leaves three or four pieces that stay on the table
+  await page.keyboard.press('r');
+  await new Promise((r) => setTimeout(r, 500));
+  await game(() => window.__game.breakVial());
+  check([3, 4].includes(await game(() => window.__game.shards)), `a broken vial leaves 3 or 4 pieces (${await game(() => window.__game.shards)})`);
+  await new Promise((r) => setTimeout(r, 1500));
+  check(colorsIn(await shot('shards')) > 40, 'the pieces render');
+  check(!(await game(() => window.__game.tools.vial.active)), 'the vial is gone');
+
   check(errors.length === 0, `no console or page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   console.log(`screenshots in ${outDir}`);
 } catch (e) {
