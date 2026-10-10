@@ -340,3 +340,36 @@ test('a half grab still slips even with the smoothing (the filters only calm noi
   const r = holdWithTrackingNoise({ filtered: true, contact: 0.3, posNoise: 0, rotNoise: 0, seconds: 2 });
   assert.equal(r.lost, true);
 });
+
+// The hand turns about the horizontal axis through the gripped point; returns how far (degrees) the vial really tilts.
+function tiltWithHand(mode, dy, contact, targetDeg) {
+  const { physics } = make();
+  physics.vial.position.set(0.2, 0.3, 0);
+  physics.vial.velocity.set(0, 0, 0);
+  const anchor = { x: 0.2, y: 0.3 + dy, z: 0 }; // dy above the vial's center
+  physics.startGrip(mode, anchor, contact);
+  const dt = 1 / 72;
+  const zero = { x: 0, y: 0, z: 0 };
+  for (let t = 0; t < 2.5; t += dt) {
+    const a = (Math.min(1, t / 0.5) * targetDeg * Math.PI) / 180;
+    physics.setGrip(anchor, zero, { x: 0, y: 0, z: Math.sin(a / 2), w: Math.cos(a / 2) }, 1);
+    physics.step(dt);
+  }
+  const v = physics.vial.quaternion.vmult(new physics.vial.position.constructor(0, 1, 0));
+  return Math.abs((Math.atan2(v.x, v.y) * 180) / Math.PI);
+}
+
+test('a vial held at one point follows the turn of the hand instead of hanging from that point', () => {
+  for (const dy of [0, 0.03, -0.03, 0.045]) {
+    const tilt = tiltWithHand('pinch', dy, 1, 70);
+    assert.ok(Math.abs(tilt - 70) < 8, `pinched ${dy * 100} cm from the center: ${tilt.toFixed(0)} degrees instead of 70`);
+  }
+  assert.ok(Math.abs(tiltWithHand('fist', 0, 1, 70) - 70) < 5, 'a fist');
+});
+
+test('the whole hand holds the turn better than two fingers; a weak pinch lets the vial hang', () => {
+  const error = (mode, contact) => Math.abs(tiltWithHand(mode, 0.045, contact, 70) - 70);
+  assert.ok(error('fist', 0.15) < 8, 'a fist with a weak hold still follows');
+  assert.ok(error('pinch', 0.15) > 15, 'a pinch with the same hold hangs');
+  assert.ok(error('fist', 1) <= error('pinch', 1), 'at full strength the fist is at least as steady');
+});

@@ -11,8 +11,8 @@ export const PHYSICS = {
   // moment; a grip that really lets go falls behind without bound). A pinch steers the
   // orientation only weakly: the tool pivots between the fingertips.
   grip: {
-    fist: { forceG: 2.85, torqueG: 0.1, wn: 60, lose: 0.07 },
-    pinch: { forceG: 1.85, torqueG: 0.02, wn: 25, lose: 0.04 },
+    fist: { forceG: 2.85, torqueG: 0.3, wn: 60, lose: 0.07 },
+    pinch: { forceG: 1.85, torqueG: 0.12, wn: 60, lose: 0.04 },
   },
   spring: { kpPerMass: 5000, kdPerMass: 160 }, // N/m and N s/m per kg
   match: { half: { x: 0.005, y: 0.025, z: 0.005 }, mass: 0.002, lifetime: 5 }, // a dropped match, lifetime in s
