@@ -5,30 +5,25 @@ import { indexLocal } from './space.js';
 
 const C = INPUT.calibration;
 const range = LAYOUT.table.heightRange;
-const bounds = LAYOUT.tableBounds;
 
-// Steps, each done by tapping three times with the index finger of a tracked hand: the table top (the lowest tap is the height), then the
-// front edge at two places (the two points make a line: where the table stands and how it is turned). They repeat
-// in a loop, so any step can be done again. Height and edge are remembered for the next session. Until then the table
-// is at its default height and place (LAYOUT).
-const STEPS = ['height', 'edge 1', 'edge 2'];
-const NEXT = {
-  height: 'tap the table top',
-  'edge 1': 'tap the front edge, left part',
-  'edge 2': 'tap the front edge, right part',
-};
-
+// The virtual table stands where the real one does. Two sets of three quick taps on the table top at its front edge,
+// with the index finger of a tracked hand (not a controller), not next to anything you could pick up: the lowest tap
+// of all six is the height of the table top, the two places are a line (the front edge) and the table's middle lies
+// exactly between them, so the taps can go out to the far ends. Height and edge are remembered for the next session.
+// Until then the table is at its default height and place (LAYOUT).
 export function createCalibration(ctx) {
   const { view, physics } = ctx;
   const storage = typeof localStorage === 'undefined' ? undefined : localStorage;
-  const counters = [createTapCounter(C.tap), createTapCounter(C.tap)];
+  const makeCounters = () => [0, 1].map(() => createTapCounter(C.tap));
+  let counters = makeCounters();
   const tip = new THREE.Vector3();
   let height = LAYOUT.table.h;
   let origin = 'default';
   let edge = null;
-  let step = 0;
-  let first = null; // the first point of the edge (scene x, z)
+  let first = null; // after the first set: { x, z, low } (place on the scene floor plane, lowest tap)
   let taps = 0;
+  let live = ''; // what the tracked finger does, for the status panel while the numbers are tuned
+  let blocked = ''; // why a hand at table height is not counted
   let notice = '';
 
   function apply(h) {
@@ -64,23 +59,25 @@ export function createCalibration(ctx) {
     return true;
   }
 
-  const mean = (points) => ({ x: points.reduce((s, p) => s + p.x, 0) / points.length, z: points.reduce((s, p) => s + p.z, 0) / points.length });
+  const place = (points) => ({ x: points.reduce((s, p) => s + p.x, 0) / points.length, z: points.reduce((s, p) => s + p.z, 0) / points.length });
 
-  // a finished set of three taps does the current step; returns whether it worked
+  // a set of three taps is done: the first one only sets the height, the second one also makes the line
   function finish(r) {
     notice = '';
-    if (STEPS[step] === 'height') return set(r.height - C.fingerThickness);
-    const point = mean(r.points);
-    if (STEPS[step] === 'edge 1') {
-      first = point;
-      return true;
+    const here = place(r.points);
+    if (!first) {
+      if (!set(r.height - C.fingerThickness)) return;
+      first = { ...here, low: r.height };
+      return;
     }
-    const e = edgeFromPoints(first, point, { frontToOrigin: bounds.maxZ, minSpan: C.edge.minSpan });
-    if (!e || !setEdge(e)) {
-      notice = `the two edge points are too close (at least ${Math.round(C.edge.minSpan * 100)} cm apart)`;
-      return false;
+    const line = edgeFromPoints(first, here, { frontToOrigin: LAYOUT.tableBounds.maxZ, minSpan: C.edge.minSpan });
+    if (!line) {
+      notice = `points < ${Math.round(C.edge.minSpan * 100)} cm apart, tap the 2nd set farther away`;
+      return;
     }
-    return true;
+    set(Math.min(first.low, r.height) - C.fingerThickness);
+    setEdge(line);
+    first = null;
   }
 
   return {
@@ -89,26 +86,34 @@ export function createCalibration(ctx) {
     set,
     setEdge,
 
-    // each frame: a tracked hand (not a controller) that taps three times with the index finger does the current step
+    // each frame: a tracked hand's index finger taps
     update(dt) {
       taps = 0;
+      blocked = '';
+      live = '';
       ctx.hands.forEach((hand, i) => {
         indexLocal(view, hand, tip);
         const worldY = hand.indexPoint.y;
-        // the edge of the real table may lie outside the virtual one: only the height step stays on the table
-        const onTable = STEPS[step] !== 'height'
-          || (tip.x >= bounds.minX && tip.x <= bounds.maxX && tip.z >= bounds.minZ && tip.z <= bounds.maxZ);
-        const over = hand.mode === 'tracked' && hand.held === null && Math.abs(worldY - height) <= C.band && onTable && !ctx.handInput.nearThing(tip);
+        const nearTable = hand.mode === 'tracked' && Math.abs(worldY - height) <= C.band;
+        if (nearTable) blocked = blocked || (hand.held !== null ? 'the hand holds something' : ctx.handInput.nearThing(tip) ? 'too close to an object' : '');
+        const over = nearTable && hand.held === null && !ctx.handInput.nearThing(tip);
         const r = counters[i].update(worldY, over, dt, { x: hand.indexPoint.x, z: hand.indexPoint.z });
         taps = Math.max(taps, r.taps);
-        if (r.done && finish(r)) step = (step + 1) % STEPS.length;
+        if (hand.mode === 'tracked') live = `${hand.handedness[0]}${((worldY - height) * 100).toFixed(0)} d${(r.dip * 100).toFixed(1)}${over ? '' : ' off'}`; // finger cm above the table top, dip cm below its peak
+        if (r.done) {
+          finish(r);
+          counters = makeCounters();
+        }
       });
     },
 
+    // one short line for the panel (it holds about 60 characters)
     statusLine() {
-      if (taps > 0) return `${STEPS[step]}: tap ${taps} of ${C.tap.count}`;
-      const state = `table ${height.toFixed(2)} m (${origin}${edge ? ', edge set' : ''})`;
-      return `${notice || state}; ${C.tap.count} index-finger taps: ${NEXT[STEPS[step]]}`;
+      const tag = live ? ` [${live}]` : '';
+      if (taps > 0) return `tap ${taps}/${C.tap.count} (set ${first ? 2 : 1} of 2)${tag}`;
+      if (notice) return notice;
+      if (blocked) return `not counted: ${blocked}${tag}`;
+      return `${height.toFixed(2)}m ${edge ? 'edge ok' : 'no edge'} | 3 taps x2 at the front edge${first ? ' (1 of 2 done)' : ''}${tag}`;
     },
   };
 }

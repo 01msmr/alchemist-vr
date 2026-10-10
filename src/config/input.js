@@ -69,15 +69,15 @@ export const INPUT = {
     pour: { base: 0.1, range: 0.5, ms: 60, every: 0.08 }, // strength grows with the flow; every = seconds between pulses
   },
 
-  // setting the real table: tap its top three times with the index finger (the lowest tap is the table top), then its
-  // front edge three times at two places (a line: where the table is and how it is turned)
+  // setting the real table, with the index finger of a tracked hand: two sets of three quick taps on its top at the front
+  // edge (the lowest tap is the table top; the two places are a line: where the table is and how it is turned)
   calibration: {
-    tap: { count: 3, drop: 0.02, lift: 0.015, maxGap: 0.75, tolerance: 0.03 }, // m, s: a tap drops 2 cm then lifts 1.5 cm; taps at most 0.75 s apart and within 3 cm of each other
+    tap: { count: 3, drop: 0.02, lift: 0.015, maxGap: 0.75, tolerance: 0.05 }, // m, s: a tap drops 2 cm then lifts 1.5 cm; taps at most 0.75 s apart and within 5 cm height of each other (a finger may slip over the rim)
     band: 0.25, // m above or below the current virtual table top where a touch counts
     keepAway: 0.08, // m: not within this of anything you could pick up (a missed grab is not a calibration)
     fingerThickness: 0.01, // m: the fingertip joint is this far above the surface it touches
     storageKey: 'alchemist.tableHeight',
-    edge: { minSpan: 0.3, storageKey: 'alchemist.tableEdge' }, // m: the two edge points must be this far apart
+    edge: { minSpan: 0.3, storageKey: 'alchemist.tableEdge' }, // the two places of the two tap sets must be at least minSpan m apart
   },
 
   // desktop fallback

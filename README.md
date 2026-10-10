@@ -12,9 +12,7 @@ npm test         # unit tests of the pure logic
 npm run build    # production build into dist/
 npm run smoke    # runs the real game headless in Chromium with scripted mouse input (slow; fails on any console error)
 ```
-On the Quest, enable hand tracking in the headset settings and press the VR button. Stand at a real table, tap it
-three times with your index finger (not next to an object; the lowest tap counts), then tap the front edge three times at
-a left and three times at a right place (two points make a line). Only tracked hands do this, controllers do not.: the virtual table moves to that height and is remembered.
+On the Quest, enable hand tracking in the headset settings and press the VR button. Stand at a real table and tap its top with your index finger, three quick taps at the front edge, then three more farther along the edge (not next to an object; the far ends are best): the lowest tap sets the table height, the two places make the front edge, and the virtual table stands there, centered between them. Only tracked hands do this, controllers do not. It is remembered.
 Pinch the status panel behind the table (or press B / Y, or R on the desktop) to start over.
 
 ## Status

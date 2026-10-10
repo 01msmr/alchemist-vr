@@ -2,7 +2,7 @@
 
 // Counts taps of a fingertip on the table: a drop of at least `drop`, then a lift of at least `lift` above the lowest
 // point. Taps must follow each other within `maxGap` seconds and lie within `tolerance` of each other in height.
-// update(y, active, dt, data) returns { taps, done, height, points }; on done (once), `height` is the lowest of the taps
+// update(y, active, dt, data) returns { taps, done, height, points, dip (m below the recent peak) }; on done (once), `height` is the lowest of the taps
 // and `points` the `data` given at the lowest sample of each tap.
 export function createTapCounter({ count, drop, lift, maxGap, tolerance }) {
   let taps = [];
@@ -17,7 +17,7 @@ export function createTapCounter({ count, drop, lift, maxGap, tolerance }) {
     update(y, active, dt, data) {
       if (!active) {
         reset();
-        return { taps: 0, done: false };
+        return { taps: 0, done: false, dip: 0 };
       }
       if (top === null) top = y;
       if (taps.length > 0 && (sinceTap += dt) > maxGap) { taps = []; points = []; sinceTap = 0; }
@@ -41,7 +41,7 @@ export function createTapCounter({ count, drop, lift, maxGap, tolerance }) {
           }
         }
       }
-      return { taps: taps.length, done: false };
+      return { taps: taps.length, done: false, dip: falling ? top - low : Math.max(0, top - y) };
     },
   };
 }

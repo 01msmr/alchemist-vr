@@ -157,3 +157,16 @@ test('only plausible edges are accepted, and stored and loaded', () => {
   assert.equal(saveEdge(storage, 'e', { x: 0, z: 0, yaw: 4 }), false);
   assert.equal(loadEdge(memory({ e: 'not json' }), 'e'), null);
 });
+
+test('the edge taps may differ in height (the finger slides over the rim), only their place counts', () => {
+  const counter = createTapCounter({ ...TAP, tolerance: Infinity });
+  const r = feed(counter, [...tap(0.74), ...tap(0.6), ...tap(0.7)]);
+  assert.equal(r.done, true);
+  assert.equal(r.height, 0.6);
+});
+
+test('the counter reports how far the finger has dipped below its recent peak', () => {
+  const counter = createTapCounter(TAP);
+  counter.update(0.9, true, DT);
+  assert.ok(close(counter.update(0.885, true, DT).dip, 0.015));
+});
