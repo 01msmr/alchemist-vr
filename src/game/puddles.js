@@ -15,14 +15,16 @@ OFFSETS.sort((a, b) => a[2] - b[2] || a[3] - b[3]);
 
 export function createPuddles(bounds) {
   const cells = new Map(); // "ix,iz" -> amount
+  const kinds = new Map(); // "ix,iz" -> what it is (the latest to land there wins)
   const inside = (ix, iz) => ix * CELL >= bounds.minX && ix * CELL <= bounds.maxX && iz * CELL >= bounds.minZ && iz * CELL <= bounds.maxZ;
   const key = (ix, iz) => `${ix},${iz}`;
 
   const puddles = {
     cells,
+    kinds,
     version: 0, // changes whenever the puddles do, so the renderer knows when to rebuild
 
-    add(x, z, amount) {
+    add(x, z, amount, kind = 'hg') {
       const ix = Math.round(x / CELL);
       const iz = Math.round(z / CELL);
       if (!inside(ix, iz)) return false; // off the table
@@ -37,6 +39,7 @@ export function createPuddles(bounds) {
         if (room <= 0) continue;
         const put = Math.min(room, remaining);
         cells.set(k, (cells.get(k) || 0) + put);
+        kinds.set(k, kind);
         remaining -= put;
       }
       puddles.version++;
@@ -51,6 +54,7 @@ export function createPuddles(bounds) {
 
     clear() {
       cells.clear();
+      kinds.clear();
       puddles.version++;
     },
   };

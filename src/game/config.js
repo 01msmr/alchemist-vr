@@ -41,6 +41,19 @@ export const CFG = {
   STRIKE_MAX: 3.0, // m/s above this the match head breaks
   STRIKE_LENGTH: 0.03, // m of fast stroke needed to ignite
 
+  // level 2: amalgam + sulfur + heat + stirring = gold
+  GRAIN: 0.0075, // doses of sulfur per grain
+  GRAINS_PER_PINCH: 8,
+  SULFUR_MIN: 0.35,
+  SULFUR_MAX: 0.75,
+  STIR_MIN_SPEED: 0.12, // m/s the rod tip must move inside the crucible
+  STIR_NEEDED: 3, // s of stirring
+  STIR_DECAY: 0.5, // stirring progress lost per second while not stirring
+  LUMP_HOLD: 10, // s of right conditions without stirring until it clumps (fool's gold)
+  GOLD_MIN: 0.7, // result quality for real gold
+  DULL_MIN: 0.4, // result quality for dull gold; below that, fool's gold
+  TIDY_DELAY: 3, // s after the amalgam forms until the used objects are cleared away
+
   AMALGAM_HOLD: 1.5, // s of liquid lead + dose in window
   BURN_HOLD: 2.5,
 };

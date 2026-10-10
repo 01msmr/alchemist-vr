@@ -6,7 +6,10 @@ export function createState() {
   return {
     vial: { fill: CFG.VIAL_CAPACITY },
     flow: 0, // current pour rate, for the stream visual
-    crucible: { content: 'lead', temp: 0, mercury: 0, quality: null },
+    crucible: { content: 'lead', temp: 0, mercury: 0, quality: null, sulfur: 0, stir: 0 },
+    level: 1,
+    tidyIn: null, // seconds until level 1's objects are cleared away, once the amalgam exists
+    nugget: null, // the gold taken out of the crucible: { kind, quality }
     progress: {}, // reaction id -> seconds the condition has held
     wasted: 0,
     vialBroken: false,
@@ -61,16 +64,21 @@ export function snuffCandle(s) {
   s.candleLit = false;
 }
 
+// 1 in the middle of a window, 0 at its edges
+const windowScore = (value, min, max) => clamp01(1 - Math.abs(value - (min + max) / 2) / ((max - min) / 2));
+export const heatScore = (temp) => windowScore(temp, CFG.MELT, CFG.BURN);
+
 // Hidden quality of the amalgam: how close the dose and the heat were to the middle of their windows.
 export function amalgamQuality(c) {
-  const doseMid = (CFG.DOSE_MIN + CFG.DOSE_MAX) / 2;
-  const doseHalf = (CFG.DOSE_MAX - CFG.DOSE_MIN) / 2;
-  const heatMid = (CFG.MELT + CFG.BURN) / 2;
-  const heatHalf = (CFG.BURN - CFG.MELT) / 2;
-  const dose = clamp01(1 - Math.abs(c.mercury - doseMid) / doseHalf);
-  const heat = clamp01(1 - Math.abs(c.temp - heatMid) / heatHalf);
-  return 0.5 * dose + 0.5 * heat;
+  return 0.5 * windowScore(c.mercury, CFG.DOSE_MIN, CFG.DOSE_MAX) + 0.5 * heatScore(c.temp);
 }
+
+// Hidden quality of the gold: the amalgam it came from, the sulfur dose and the heat.
+export function goldQuality(c) {
+  return 0.4 * (c.quality ?? 0) + 0.3 * windowScore(c.sulfur, CFG.SULFUR_MIN, CFG.SULFUR_MAX) + 0.3 * heatScore(c.temp);
+}
+
+const sulfurOk = (c) => c.sulfur >= CFG.SULFUR_MIN && c.sulfur <= CFG.SULFUR_MAX;
 
 // One row per reaction: when the condition has held for `hold` seconds, apply the outcome.
 // Failures are rows too; they do something, they never block.
@@ -92,6 +100,34 @@ export const REACTIONS = [
     when: (c) => c.content === 'lead' && c.temp >= CFG.MELT && c.mercury >= CFG.DOSE_MIN && c.mercury <= CFG.DOSE_MAX,
     hold: CFG.AMALGAM_HOLD,
     apply: (c) => { c.content = 'amalgam'; c.quality = amalgamQuality(c); },
+  },
+  // level 2
+  {
+    id: 'slag',
+    when: (c) => c.content === 'amalgam' && c.sulfur > CFG.SULFUR_MAX,
+    hold: 0,
+    apply: (c) => { c.content = 'slag'; c.quality = 0; },
+  },
+  {
+    id: 'burn2',
+    when: (c) => c.content === 'amalgam' && c.sulfur > 0 && c.temp >= CFG.BURN,
+    hold: CFG.BURN_HOLD,
+    apply: (c) => { c.content = 'burnt'; c.quality = 0; },
+  },
+  {
+    id: 'gold',
+    when: (c) => c.content === 'amalgam' && sulfurOk(c) && c.temp >= CFG.MELT && c.stir >= CFG.STIR_NEEDED,
+    hold: 0,
+    apply: (c) => {
+      c.quality = goldQuality(c);
+      c.content = c.quality >= CFG.GOLD_MIN ? 'gold' : c.quality >= CFG.DULL_MIN ? 'dull' : 'fools';
+    },
+  },
+  {
+    id: 'lumps', // right dose, right heat, never stirred: it clumps into fool's gold
+    when: (c) => c.content === 'amalgam' && sulfurOk(c) && c.temp >= CFG.MELT,
+    hold: CFG.LUMP_HOLD,
+    apply: (c) => { c.content = 'fools'; c.quality = 0.2; },
   },
 ];
 
@@ -126,6 +162,41 @@ export function breakVial(s) {
   s.vialBroken = true;
   s.flow = 0;
   return spilled;
+}
+
+// A grain of sulfur reached the crucible mouth. Only the amalgam takes it.
+export function landSulfur(s, amount) {
+  const c = s.crucible;
+  if (c.content === 'amalgam') c.sulfur += amount;
+  else s.wasted += amount;
+}
+
+// The rod tip moved inside the crucible (stirring) or not: stirring builds up, standing still lets it fade.
+export function stirCrucible(s, dt, stirring) {
+  const c = s.crucible;
+  if (stirring && c.content === 'amalgam' && c.sulfur > 0 && c.temp >= CFG.MELT) c.stir += dt;
+  else c.stir = Math.max(0, c.stir - CFG.STIR_DECAY * dt);
+}
+
+// Level 1 ends a moment after the amalgam exists (paused while the vial is in a hand). Returns true once.
+export function advanceLevel(s, dt, vialHeld) {
+  if (s.level !== 1 || s.crucible.content !== 'amalgam') return false;
+  if (s.tidyIn === null) s.tidyIn = CFG.TIDY_DELAY;
+  if (!vialHeld) s.tidyIn -= dt;
+  if (s.tidyIn > 0) return false;
+  s.level = 2;
+  return true;
+}
+
+// Take the finished gold out of the crucible. Returns { kind, quality } or null.
+export function takeNugget(s) {
+  const c = s.crucible;
+  if (!['gold', 'dull', 'fools'].includes(c.content) || s.nugget) return null;
+  s.nugget = { kind: c.content, quality: c.quality };
+  c.content = 'empty';
+  c.sulfur = 0;
+  c.stir = 0;
+  return s.nugget;
 }
 
 // A drop of mercury reached the crucible mouth. Only liquid lead takes it; otherwise it beads off.

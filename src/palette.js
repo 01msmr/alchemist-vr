@@ -20,6 +20,13 @@ export const P = {
   MATCH_HEAD: 18,
   BOX: 19,
   STRIKER: 20,
+  SULFUR: 21,
+  GOLD: 22,
+  GOLD_DULL: 23,
+  FOOLS: 24,
+  SLAG: 25,
+  DISH: 26,
+  ROD: 27,
 };
 
 const COLORS = {
@@ -43,6 +50,13 @@ const COLORS = {
   MATCH_HEAD: [190, 40, 40],
   BOX: [60, 90, 160],
   STRIKER: [90, 60, 50],
+  SULFUR: [235, 215, 60],
+  GOLD: [255, 200, 40],
+  GOLD_DULL: [170, 140, 50],
+  FOOLS: [205, 190, 90],
+  SLAG: [90, 75, 40],
+  DISH: [180, 170, 150],
+  ROD: [150, 110, 70],
 };
 
 export const PALETTE = [[0, 0, 0]];

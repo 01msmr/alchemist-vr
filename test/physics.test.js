@@ -1,21 +1,34 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createPhysics, VIAL_HALF } from '../src/physics.js';
+import { createPhysics, GRIP } from '../src/physics.js';
+import { TOOLS } from '../src/tools.js';
 
-const REST = { x: 0.22, y: VIAL_HALF.y, z: 0.08 };
+const REST = { x: 0.22, y: TOOLS.vial.half.y, z: 0.08 };
 
 function make(extra = {}) {
   const events = { breaks: [], gone: [] };
   const physics = createPhysics({
     table: { minX: -1, maxX: 1, minZ: -0.7, maxZ: 0.3 },
     floorY: -0.85,
-    stack: { x: 0, z: 0, h: 0.14, halfW: 0.045 },
+    stack: { x: 0, z: 0, h: 0.14, halfW: 0.045, baseH: 0.07, innerHalf: 0.033 },
     matchbox: { x: -0.18, y: 0.015, z: 0.07, hx: 0.03, hy: 0.015, hz: 0.02 },
-    vialRest: REST,
-    onBreak: (pos, vel) => events.breaks.push({ pos, vel }),
     onDebrisGone: (entry) => events.gone.push(entry),
     ...extra,
   });
+  const vial = physics.addTool(TOOLS.vial, { onBreak: (pos, vel) => events.breaks.push({ pos, vel }) });
+  vial.spawn(REST);
+  // the old tests talk to the vial directly
+  physics.vial = vial.body;
+  physics.hold = () => vial.hold();
+  physics.setPose = (p, q) => vial.setPose(p, q);
+  physics.release = (l, a) => vial.release(l, a);
+  physics.startGrip = (m, a, c) => vial.startGrip(m, a, c);
+  physics.setGrip = (p, v, q, st) => vial.setGrip(p, v, q, st);
+  physics.endGrip = () => vial.endGrip();
+  physics.isGripped = () => vial.isGripped();
+  physics.gripSeparation = () => vial.gripSeparation();
+  physics.isAlive = () => vial.isAlive();
+  physics.tool = vial;
   return { physics, events };
 }
 const run = (physics, seconds) => { for (let t = 0; t < seconds; t += 1 / 72) physics.step(1 / 72); };
@@ -31,12 +44,12 @@ test('a vial standing on the table stays put and does not break', () => {
   assert.equal(events.breaks.length, 0);
   assert.ok(physics.isAlive());
   assert.ok(up(physics.vial) > 0.99);
-  assert.ok(Math.abs(physics.vial.position.y - VIAL_HALF.y) < 0.003);
+  assert.ok(Math.abs(physics.vial.position.y - TOOLS.vial.half.y) < 0.003);
 });
 
 test('set down from a few centimeters it survives and comes to rest', () => {
   const { physics, events } = make();
-  physics.vial.position.y = VIAL_HALF.y + 0.06;
+  physics.vial.position.y = TOOLS.vial.half.y + 0.06;
   run(physics, 3);
   assert.equal(events.breaks.length, 0);
   assert.ok(speed(physics.vial) < 0.05);
@@ -95,7 +108,7 @@ test('reset brings a broken vial back', () => {
   physics.vial.position.y = 1;
   run(physics, 2);
   assert.equal(physics.isAlive(), false);
-  physics.reset();
+  physics.tool.spawn(REST);
   assert.ok(physics.isAlive());
   run(physics, 1);
   assert.equal(events.breaks.length, 1);
@@ -164,3 +177,44 @@ test('letting go of a grip drops the vial', () => {
 function GRIP_LOSE(mode) {
   return mode === 'fist' ? 0.05 : 0.04;
 }
+
+test('a rod dropped over the crucible falls inside it, stirring depth reachable', () => {
+  const { physics } = make();
+  const rod = physics.addTool(TOOLS.rod);
+  rod.spawn({ x: 0, y: 0.3, z: 0 });
+  run(physics, 2);
+  assert.ok(rod.body.position.y < 0.17, `rod center at ${rod.body.position.y}`);
+  assert.ok(Math.abs(rod.body.position.x) < 0.04 && Math.abs(rod.body.position.z) < 0.04);
+});
+
+test('a rod gripped by a firm fist is carried and does not break; a nugget can be pinched', () => {
+  const { physics, events } = make();
+  const rod = physics.addTool(TOOLS.rod);
+  rod.spawn({ x: 0.4, y: 0.3, z: 0 });
+  rod.startGrip('fist', { x: 0.4, y: 0.3, z: 0 }, 1);
+  for (let t = 0; t < 1; t += 1 / 72) {
+    rod.setGrip({ x: 0.4, y: 0.3, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0, w: 1 }, 1);
+    physics.step(1 / 72);
+  }
+  assert.ok(rod.gripSeparation() < 0.01);
+  assert.equal(events.breaks.length, 0);
+
+  const nugget = physics.addTool(TOOLS.nugget);
+  nugget.spawn({ x: -0.5, y: 0.2, z: 0 });
+  nugget.startGrip('pinch', { x: -0.5, y: 0.2, z: 0 }, 1);
+  for (let t = 0; t < 1; t += 1 / 72) {
+    nugget.setGrip({ x: -0.5, y: 0.2, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0, w: 1 }, 1);
+    physics.step(1 / 72);
+  }
+  assert.ok(nugget.gripSeparation() < 0.01);
+  assert.ok(Math.abs(nugget.body.position.y - 0.2) < 0.01);
+});
+
+test('reset takes every tool out of the world', () => {
+  const { physics } = make();
+  const rod = physics.addTool(TOOLS.rod);
+  rod.spawn({ x: 0.4, y: 0.3, z: 0 });
+  physics.reset();
+  assert.equal(physics.tool.isAlive(), false);
+  assert.equal(rod.isAlive(), false);
+});

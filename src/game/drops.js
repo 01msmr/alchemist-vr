@@ -15,15 +15,16 @@ export function spillVelocity(up, flowFraction, handVel) {
   };
 }
 
-export function spawnDrop(list, p, v, amount) {
+// kind: what the drop is made of ('hg' mercury, 'sulfur' grains)
+export function spawnDrop(list, p, v, amount, kind = 'hg') {
   if (list.length >= MAX_DROPS) return false;
-  list.push({ x: p.x, y: p.y, z: p.z, vx: v.x, vy: v.y, vz: v.z, amount });
+  list.push({ x: p.x, y: p.y, z: p.z, vx: v.x, vy: v.y, vz: v.z, amount, kind });
   return true;
 }
 
 // Advances all drops under gravity. A drop that crosses the crucible's top plane inside the mouth
 // lands in the crucible, on the rim ring it splashes off, anywhere else it falls to the table.
-// target: { cx, cz, top, mouth, rim }; onLand(amount, 'crucible' | 'rim' | 'table', x, z).
+// target: { cx, cz, top, mouth, rim }; onLand(amount, 'crucible' | 'rim' | 'table', x, z, kind).
 export function stepDrops(list, dt, target, onLand) {
   for (let i = list.length - 1; i >= 0; i--) {
     const d = list[i];
@@ -52,7 +53,7 @@ export function stepDrops(list, dt, target, onLand) {
       at = prevY > 0 ? crossing(0) : { x: d.x, z: d.z };
     }
     if (where) {
-      onLand(d.amount, where, at.x, at.z);
+      onLand(d.amount, where, at.x, at.z, d.kind);
       list.splice(i, 1);
     }
   }

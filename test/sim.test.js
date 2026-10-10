@@ -215,3 +215,103 @@ test('a stroke that is far too fast snaps the match head off for good', () => {
   strikeMatch(s);
   assert.equal(s.match.lit, 0);
 });
+
+// --- level 2 ---
+import { landSulfur, stirCrucible, advanceLevel, takeNugget, goldQuality } from '../src/game/sim.js';
+
+function amalgamState(overrides = {}) {
+  const s = createState();
+  Object.assign(s.crucible, { content: 'amalgam', quality: 0.9, temp: 0.72, sulfur: 0, stir: 0 }, overrides);
+  return s;
+}
+const mid = (a, b) => (a + b) / 2;
+
+test('sulfur is only taken by the amalgam; otherwise it is wasted', () => {
+  const s = createState();
+  landSulfur(s, 0.1);
+  assert.equal(s.crucible.sulfur, 0);
+  assert.equal(s.wasted, 0.1);
+  const a = amalgamState();
+  landSulfur(a, 0.1);
+  assert.ok(Math.abs(a.crucible.sulfur - 0.1) < 1e-12);
+});
+
+test('stirring builds up while stirring hot amalgam with sulfur and fades otherwise', () => {
+  const s = amalgamState({ sulfur: 0.5 });
+  stirCrucible(s, 1, true);
+  assert.equal(s.crucible.stir, 1);
+  stirCrucible(s, 1, false);
+  assert.ok(Math.abs(s.crucible.stir - (1 - CFG.STIR_DECAY)) < 1e-12);
+  const cold = amalgamState({ sulfur: 0.5, temp: 0.2 });
+  stirCrucible(cold, 1, true);
+  assert.equal(cold.crucible.stir, 0);
+  const none = amalgamState({ sulfur: 0 });
+  stirCrucible(none, 1, true);
+  assert.equal(none.crucible.stir, 0);
+});
+
+test('amalgam + sulfur in window + heat + enough stirring makes gold', () => {
+  const s = amalgamState({ sulfur: mid(CFG.SULFUR_MIN, CFG.SULFUR_MAX), temp: (CFG.MELT + CFG.BURN) / 2 });
+  run(s, 1);
+  assert.equal(s.crucible.content, 'amalgam', 'not stirred yet');
+  stirCrucible(s, CFG.STIR_NEEDED, true);
+  run(s, DT);
+  assert.equal(s.crucible.content, 'gold');
+  assert.ok(s.crucible.quality > 0.85);
+});
+
+test('a poor amalgam and sloppy dose give dull gold or fool\'s gold', () => {
+  const dull = amalgamState({ quality: 0.3, sulfur: CFG.SULFUR_MIN + 0.01, temp: CFG.MELT + 0.05, stir: CFG.STIR_NEEDED });
+  run(dull, DT);
+  assert.ok(['dull', 'fools'].includes(dull.crucible.content));
+  assert.ok(dull.crucible.quality < CFG.GOLD_MIN);
+  assert.ok(goldQuality({ quality: 0, sulfur: 0.5, temp: 0.72 }) < 0.7);
+});
+
+test('too much sulfur makes slag at once; overheating with sulfur burns it', () => {
+  const slag = amalgamState({ sulfur: CFG.SULFUR_MAX + 0.1 });
+  run(slag, DT);
+  assert.equal(slag.crucible.content, 'slag');
+  const burnt = amalgamState({ sulfur: 0.5, temp: 0.99 });
+  burnt.candleLit = true;
+  run(burnt, CFG.BURN_HOLD + 0.2);
+  assert.equal(burnt.crucible.content, 'burnt');
+});
+
+test('overheating plain amalgam does not burn it (only once sulfur is in)', () => {
+  const s = amalgamState({ sulfur: 0, temp: 0.99 });
+  s.candleLit = true;
+  run(s, CFG.BURN_HOLD + 1);
+  assert.equal(s.crucible.content, 'amalgam');
+});
+
+test('right sulfur and heat but never stirred clumps into fool\'s gold', () => {
+  const s = amalgamState({ sulfur: mid(CFG.SULFUR_MIN, CFG.SULFUR_MAX), temp: 0.72 });
+  s.candleLit = true;
+  s.crucible.temp = 0.72;
+  for (let t = 0; t < CFG.LUMP_HOLD + 1; t += DT) {
+    step(s, DT);
+    s.crucible.temp = 0.72; // held steady
+  }
+  assert.equal(s.crucible.content, 'fools');
+});
+
+test('level 1 is tidied a moment after the amalgam forms, paused while the vial is held', () => {
+  const s = createState();
+  assert.equal(advanceLevel(s, 1, false), false);
+  s.crucible.content = 'amalgam';
+  assert.equal(advanceLevel(s, 0.1, false), false);
+  assert.equal(advanceLevel(s, CFG.TIDY_DELAY, true), false, 'held: the countdown waits');
+  assert.equal(advanceLevel(s, CFG.TIDY_DELAY, false), true);
+  assert.equal(s.level, 2);
+  assert.equal(advanceLevel(s, 10, false), false, 'only once');
+});
+
+test('the finished gold can be taken out once', () => {
+  const s = createState();
+  assert.equal(takeNugget(s), null);
+  Object.assign(s.crucible, { content: 'gold', quality: 0.9, sulfur: 0.5 });
+  assert.deepEqual(takeNugget(s), { kind: 'gold', quality: 0.9 });
+  assert.equal(s.crucible.content, 'empty');
+  assert.equal(takeNugget(s), null);
+});

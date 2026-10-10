@@ -43,7 +43,15 @@ export function crucibleContents(c) {
       if (mercury > 0) stack.push({ color: P.MERCURY, layers: mercury });
       return stack;
     }
-    case 'amalgam': return [{ color: c.quality >= 0.6 ? P.AMALGAM_GOOD : P.AMALGAM_POOR, layers: 3 }];
+    case 'amalgam': {
+      const stack = [{ color: c.quality >= 0.6 ? P.AMALGAM_GOOD : P.AMALGAM_POOR, layers: 3 }];
+      if (c.sulfur > 0) stack.push({ color: P.SULFUR, layers: Math.min(2, Math.ceil(c.sulfur * 3)) });
+      return stack;
+    }
+    case 'gold': return [{ color: P.GOLD, layers: 3 }];
+    case 'dull': return [{ color: P.GOLD_DULL, layers: 3 }];
+    case 'fools': return [{ color: P.FOOLS, layers: 3 }];
+    case 'slag': return [{ color: P.SLAG, layers: 3 }];
     case 'sludge': return [{ color: P.SLUDGE, layers: 3 }];
     case 'burnt': return [{ color: P.BURNT, layers: 1 }];
     default: return [];
@@ -132,5 +140,40 @@ export function matchboxModel(left) {
     }
   }
   for (let i = 0; i < left; i++) o.set(1 + i, 2, 3, P.MATCH_HEAD);
+  return o;
+}
+
+// 7x3x7 dish with a heap of sulfur powder.
+export function dishModel() {
+  const o = VoxelObject.empty(7, 3, 7, PALETTE);
+  const dist = (x, z) => Math.hypot(x - 3, z - 3);
+  for (let z = 0; z < 7; z++) {
+    for (let x = 0; x < 7; x++) {
+      const d = dist(x, z);
+      if (d <= 3.4) o.set(x, 0, z, P.DISH);
+      if (d > 2.2 && d <= 3.4) o.set(x, 1, z, P.DISH);
+      if (d <= 2.2) o.set(x, 1, z, P.SULFUR);
+      if (d <= 1.2) o.set(x, 2, z, P.SULFUR);
+    }
+  }
+  return o;
+}
+
+// 2x15x2 stirring rod, the bottom end is the tip.
+export function rodModel() {
+  const o = VoxelObject.empty(2, 15, 2, PALETTE);
+  for (let y = 0; y < 15; y++) for (let z = 0; z < 2; z++) for (let x = 0; x < 2; x++) o.set(x, y, z, P.ROD);
+  return o;
+}
+
+// 3x2x2 gold nugget; the kind decides the color (real gold, dull gold or fool's gold).
+export function nuggetModel(kind) {
+  const color = kind === 'gold' ? P.GOLD : kind === 'dull' ? P.GOLD_DULL : P.FOOLS;
+  const o = VoxelObject.empty(3, 2, 2, PALETTE);
+  for (let y = 0; y < 2; y++) {
+    for (let z = 0; z < 2; z++) {
+      for (let x = 0; x < 3; x++) o.set(x, y, z, color);
+    }
+  }
   return o;
 }

@@ -67,24 +67,34 @@ const BASIS = new THREE.Matrix4();
 export function createFistWrap() {
   const group = new THREE.Group();
   const palm = box(0.07, 0.05, 0.012);
-  palm.position.set(0, 0, 0.034);
-  group.add(palm);
-  for (const sx of [-1, 1]) {
-    const side = box(0.012, 0.05, 0.068);
-    side.position.set(sx * 0.034, 0, 0);
-    group.add(side);
-  }
-  for (let i = 0; i < 4; i++) { // index .. little finger
-    const finger = box(0.056, 0.011, 0.012);
-    finger.position.set(0, (i - 1.5) * 0.0115, -0.034);
-    group.add(finger);
-  }
+  const sides = [box(0.012, 0.05, 0.068), box(0.012, 0.05, 0.068)];
+  const fingers = [0, 1, 2, 3].map(() => box(0.056, 0.011, 0.012)); // index .. little finger
   const thumb = box(0.03, 0.012, 0.012);
-  thumb.position.set(0, 0.032, -0.034);
-  group.add(thumb);
+  group.add(palm, ...sides, ...fingers, thumb);
   group.visible = false;
+  let radius = -1;
 
-  function place(center, axis, handPos) {
+  // the hand closes on a tool this thick (half width, in meters)
+  function fit(r) {
+    if (r === radius) return;
+    radius = r;
+    const w = r + 0.009; // distance of palm, sides and fingers from the axis
+    palm.scale.set((2 * w + 0.002) / 0.07, 1, 1);
+    palm.position.set(0, 0, w);
+    sides.forEach((side, i) => {
+      side.scale.z = (2 * w) / 0.068;
+      side.position.set((i ? 1 : -1) * w, 0, 0);
+    });
+    fingers.forEach((finger, i) => {
+      finger.scale.x = (2 * w - 0.012) / 0.056;
+      finger.position.set(0, (i - 1.5) * 0.0115, -w);
+    });
+    thumb.position.set(0, 0.032, -w);
+  }
+  fit(0.025);
+
+  function place(center, axis, handPos, r = 0.025) {
+    fit(r);
     AXIS.copy(axis).normalize();
     D.subVectors(handPos, center);
     B.copy(D).addScaledVector(AXIS, -D.dot(AXIS)); // toward the hand, across the vial
@@ -99,6 +109,7 @@ export function createFistWrap() {
 
 // Two fingertips pinching the vial from opposite sides, with the fingers coming from the hand.
 export function createPinchGrip() {
+  // place(anchor, axis, handPos, r): the fingertips sit r (half the tool's width) + 4 mm either side of the anchor
   const group = new THREE.Group();
   const padMaterial = new THREE.MeshBasicMaterial({ color: PAD_ACTIVE });
   const boneA = bone(BONE);
@@ -112,13 +123,13 @@ export function createPinchGrip() {
   const baseA = new THREE.Vector3();
   const baseB = new THREE.Vector3();
 
-  function place(anchor, axis, handPos) {
+  function place(anchor, axis, handPos, r = 0.025) {
     D.subVectors(handPos, anchor);
     U.crossVectors(axis, D);
     if (U.lengthSq() < 1e-10) U.set(1, 0, 0);
     U.normalize();
-    a.copy(anchor).addScaledVector(U, 0.0285);
-    b.copy(anchor).addScaledVector(U, -0.0285);
+    a.copy(anchor).addScaledVector(U, r + 0.0035);
+    b.copy(anchor).addScaledVector(U, -(r + 0.0035));
     baseA.copy(handPos).addScaledVector(U, 0.012);
     baseB.copy(handPos).addScaledVector(U, -0.012);
     setBone(boneA, baseA, a);
