@@ -41,7 +41,7 @@ Game jam entry (theme: **Magic**). A voxel-style alchemist game in **WebXR VR on
 - One uniform voxel size for everything: **1 voxel = 1 cm** in the world.
 - Sizes (longest edge, in voxels): drop/coin/grain 2–4; bottle/flask/tool 8–12; frog/cat/ghost 12–19 (target 16); prince/zombie 19–24.
 - Table: at least 2 × 1 m (200 × 100 voxels), size is a data value, not a constant.
-- Pixel look comes from **geometry**, not from low-res upscaling: flat colors, per-vertex AO from neighbor voxels, MSAA, foveation. No post-processing, no transparency, no real-time shadows (blob shadows).
+- Pixel look comes from **geometry**, not from low-res upscaling: flat colors, per-vertex AO from neighbor voxels, MSAA, foveation. No post-processing, no real-time shadows (blob shadows), no transparency except the vial's glass (see-through, drawn after the opaque liquid and metal inside it).
 - Game logic does NOT calculate in voxels (fill amounts, drops, weights in own units). Voxels are display only.
 - Hand and moving objects have float positions. Only rendering is gridded. Rotation only in 90° steps or re-sampled.
 - One shared palette of **24–32 colors** for the whole game.
@@ -61,7 +61,7 @@ Game jam entry (theme: **Magic**). A voxel-style alchemist game in **WebXR VR on
 - Gas = rising cube particles, opaque and shrinking. No grid simulation.
 - Dosing = fill level with a **target window** (e.g. 40–60 %), shown as a ring on the vessel.
 
-## Interaction model (no physics)
+## Interaction model (no physics for the chemistry; rigid bodies only for loose objects, see Current state)
 - Tools are "sticks". One tool = one verb. Hold the tip near an object (radius test) and an **hold-progress ring** fills over time, then the object's state changes.
 - Objects are state machines (name + number): e.g. lead `solid > hot > liquid > solidified`, cat `straw > figure > warm > alive`.
 - A step is one table row: `{tool, object, minState, holdDuration -> newState}`. Failed attempts are rows with different outcomes (they do something funny, they do not block).
@@ -124,5 +124,25 @@ Every stage ends with something testable in the headset.
 - Jam length and team size (alone or not) are unknown.
 - Which Quest model is available for testing.
 
-## Next step
-Write stage 1 (VR skeleton + 3-point calibration + persistence) or stage 2 (`.vox` parser + mesher + small three.js viewer). The user was last asked which comes first; the `.vox` parser plus viewer was offered.
+## Current state (what exists, for the next session)
+Run `npm test` (pure logic, TDD) and `npm run dev`; the game is `src/main.js` (render loop, input glue), everything else is small pure modules.
+
+**Playable:** level 1 and level 2 on a 2 x 1 m table at 0.85 m (world origin = table top, 45 cm in front of the player).
+- Level 1: strike a match (fast stroke on the striker), light the candle, heat the lead to liquid (0.5 < temp < 0.95), pour mercury into the dose window (0.7 to 1.3), hold 1.5 s -> amalgam with a hidden quality.
+- About 3 s after the amalgam forms (and while the vial is not held) the used objects are cleared away; the mess on the table stays. Level 2: sulfur grains (pinch from the dish, 0.35 to 0.75 doses), heat, stir the rod in the crucible 3 s -> gold, dull gold or fool's gold by quality (0.4 amalgam + 0.3 sulfur + 0.3 heat). The gold can be taken out as a nugget. Failures are rows too: sludge, burnt, slag, lumps.
+- All tuning numbers are in `src/game/config.js`; the reaction table is `REACTIONS` in `src/game/sim.js`.
+
+**Code map**
+- `game/`: `sim.js` (state, reactions, pour, levels), `drops.js` (mercury and sulfur drops fly ballistically), `puddles.js` (persistent mess), `stir.js`, `geometry.js`, `config.js`.
+- `physics.js` + `tools.js`: cannon-es rigid bodies for the loose tools (vial, rod, nugget) and dropped matches. A hand holds a tool with a force-limited spring (capacity = weight x contact x press strength), so half grabs and loosened fingers slip; a mouse holds it rigidly. The vial breaks above 2.2 m/s.
+- `tracking.js` + `vr.js` + `hand.js`: hand tracking is the main input, controllers the fallback, both fill the same hand fields (`updateInput`); controller visuals and the hands drawn on a held tool are in `hand.js`.
+- `img2vox/` + `tools/img2vox.mjs`: photo cut-out to voxel shell (see below); `vox.js` parser, `mesher.js` (visible faces + vertex AO), `assets.js` (code-generated models).
+- Deploy: a push to `main` -> GitHub Action builds, tests and force-pushes `dist/` to the `deploy` branch -> a GitHub webhook tells Plesk, which pulls `deploy` into httpdocs. If Plesk's repository is ever deleted and re-added, its webhook UUID changes: update the webhook URL in the GitHub repo settings.
+
+**Vial:** the potion bottle (`src/assets/bottle.vox`, 9 x 16 voxels, 1.2x stretched). Bluish voxels are see-through glass, bronze ones opaque metal, the mercury is real voxels inside (`splitGlass`, `liquidModel` in `img2vox/vessel.js`); a full vial starts pouring at about 45 degrees, an empty one at about 70.
+
+**Unverified on a real Quest (tune with the status panel, which shows per hand `mode pinch grip`):** hand-tracking distances (`PINCH`, `GRIP_CURL` in `tracking.js`), the grasp point in front of the palm, the controller offsets `TIP_Z` and `PALM_Z` in `hand.js`, grip forces (`GRIP` in `physics.js`), the break speed, the strike speed, and every pour and dose number.
+
+**Deliberately not built (YAGNI):** a controller calibration overlay, capacitive-touch poses, a One-Euro filter on the tip, two-photo visual hull for asymmetric objects, per-finger physics, wind or slosh, sound, level 3 (the ghost) and the cat finale.
+
+**Next step candidates:** try the hand tracking on the headset and tune the numbers above; level 3 (ghost on the wall, needs wall calibration); stage 1 calibration of the real table (the table is still a fixed virtual one).

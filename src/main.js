@@ -11,7 +11,7 @@ import { createPuddles, CELL, MAX_CELL } from './game/puddles.js';
 import { createStirTracker } from './game/stir.js';
 import { tiltDirection, vialLip, tiltAngle, distanceToSegment } from './game/geometry.js';
 import { parseVox } from './vox.js';
-import { vesselModel, bodyLayers, toolSpecFromModel } from './img2vox/vessel.js';
+import { splitGlass, liquidModel, fillLayers, toolSpecFromModel } from './img2vox/vessel.js';
 import bottleUrl from './assets/bottle.vox?url';
 import {
   crucibleModel, crucibleContents, standModel, FLAME_FRAMES, matchModel, matchboxModel,
@@ -25,9 +25,10 @@ import { TOOLS } from './tools.js';
 const VOXEL = 0.01; // 1 voxel = 1 cm
 
 // The mercury vial is a potion bottle voxelized from a photo (tools/img2vox.mjs). Its collision box and grab
-// size come from the model; its liquid window is drawn on the shell.
+// size come from the model. The blue part is see-through glass, the bronze parts are opaque metal, and the
+// mercury is real voxels inside the glass, so the fill level can be read from outside.
 const bottleShell = parseVox(await (await fetch(bottleUrl)).arrayBuffer());
-const bottleLayers = bodyLayers(bottleShell).length;
+const bottleLayers = fillLayers(bottleShell); // layers the liquid can fill
 const VIAL_SPEC = { ...TOOLS.vial, ...toolSpecFromModel(bottleShell, VOXEL) };
 
 // Table: 2 x 1 m, 0.85 m high. The game lives in `world`, whose origin is on the table top,
@@ -280,6 +281,7 @@ function makeTool(id, extra, spec = TOOLS[id]) {
   return {
     id, spec, group, mesh,
     ph: physics.addTool(spec, extra),
+    pickMeshes: [mesh], // what a mouse click can hit
     active: false,
     holder: null, // null | 'mouse' | hand index
     pos: new THREE.Vector3(),
@@ -307,6 +309,18 @@ const tools = {
 };
 const toolList = Object.values(tools);
 remesh(tools.rod.mesh, rodModel());
+
+// the vial: metal (tools.vial.mesh) and liquid are opaque, the glass is see-through and drawn after them
+const vialParts = splitGlass(bottleShell);
+remesh(tools.vial.mesh, vialParts.metal);
+const glassMaterial = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.38, depthWrite: false });
+const vialGlass = new THREE.Mesh(toGeometry(vialParts.glass, VOXEL), glassMaterial);
+vialGlass.position.y = -VIAL_SPEC.half.y;
+vialGlass.renderOrder = 1;
+tools.vial.group.add(vialGlass);
+tools.vial.pickMeshes.push(vialGlass);
+const vialLiquid = part(tools.vial.group);
+vialLiquid.position.y = -VIAL_SPEC.half.y;
 
 function spawnTool(t, pos, quat = new THREE.Quaternion()) {
   t.ph.spawn(pos, quat);
@@ -654,10 +668,10 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   raycaster.setFromCamera(pointer, camera);
   const pickables = [boxMesh, standMesh, crucibleMesh];
   if (dishMesh.visible) pickables.push(dishMesh);
-  for (const t of toolList) if (t.active && t.holder === null) pickables.push(t.mesh);
+  for (const t of toolList) if (t.active && t.holder === null) pickables.push(...t.pickMeshes);
   const [first] = raycaster.intersectObjects(pickables);
   if (!first) return; // empty space: orbit camera
-  const picked = toolList.find((t) => t.mesh === first.object);
+  const picked = toolList.find((t) => t.pickMeshes.includes(first.object));
 
   if (first.object === crucibleMesh) {
     if (state.nugget || !['gold', 'dull', 'fools'].includes(state.crucible.content)) return; // nothing to take: orbit
@@ -977,8 +991,8 @@ renderer.setAnimationLoop(() => {
   const contents = crucibleContents(c);
   refresh('crucible', JSON.stringify(contents), crucibleMesh, () => crucibleModel(contents));
   if (vial.active) {
-    const lit = Math.ceil(Math.min(1, state.vial.fill / CFG.VIAL_CAPACITY) * bottleLayers - 1e-9); // window layers with liquid
-    refresh('vial', lit, vial.mesh, () => vesselModel(bottleShell, lit / bottleLayers));
+    const lit = Math.ceil(Math.min(1, state.vial.fill / CFG.VIAL_CAPACITY) * bottleLayers - 1e-9); // layers with liquid
+    refresh('vial', lit, vialLiquid, () => liquidModel(bottleShell, lit / bottleLayers));
   }
   if (tools.nugget.active && state.nugget) {
     const kind = state.nugget.kind;

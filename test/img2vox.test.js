@@ -5,7 +5,7 @@ import { quantize } from '../src/img2vox/quantize.js';
 import { latheShell } from '../src/img2vox/lathe.js';
 import { writeVox } from '../src/img2vox/voxwrite.js';
 import { parseVox } from '../src/vox.js';
-import { vesselModel, bodyLayers, toolSpecFromModel } from '../src/img2vox/vessel.js';
+import { bodyLayers, splitGlass, liquidModel, fillLayers, toolSpecFromModel } from '../src/img2vox/vessel.js';
 
 // synthetic RGBA image: rows top to bottom; `shape(x, y)` returns [r,g,b] or null for transparent
 function makeImage(w, h, shape) {
@@ -119,25 +119,60 @@ test('writeVox round-trips through the parser, including the axis conversion', (
   for (let i = 1; i < obj.palette.length; i++) assert.deepEqual(back.palette[i], obj.palette[i]);
 });
 
-test('vesselModel adds a liquid window on the body that fills up with the fraction', () => {
-  const { obj } = latheShell(vase, { height: 20, colors: 4 });
-  const layers = bodyLayers(obj);
-  assert.ok(layers.length >= 8, 'the wide part is the body');
-  const cx = (obj.size[0] - 1) / 2;
-  const frontAt = (m, y) => { for (let z = m.size[2] - 1; z >= 0; z--) if (m.get(cx, y, z)) return m.get(cx, y, z); return 0; };
+const filled = (o) => o.data.filter(Boolean).length;
+const LIQUID_COLOR = [215, 225, 235];
 
-  const empty = vesselModel(obj, 0);
-  const full = vesselModel(obj, 1);
-  const half = vesselModel(obj, 0.5);
-  const lit = (m) => layers.filter((y) => m.palette[frontAt(m, y)].join() === [215, 225, 235].join()).length;
-  assert.equal(lit(empty), 0);
-  assert.equal(lit(full), layers.length);
-  assert.ok(Math.abs(lit(half) - layers.length / 2) <= 1);
-  // the liquid fills from the bottom
-  assert.equal(m_liquid(half, layers[0]), true);
-  assert.equal(m_liquid(half, layers[layers.length - 1]), false);
-  function m_liquid(m, y) { return m.palette[frontAt(m, y)].join() === [215, 225, 235].join(); }
-  assert.notEqual(empty, obj, 'the shell itself is not modified');
+test('splitGlass puts the bluish voxels into the glass and the rest (bronze) into the metal', () => {
+  const { obj } = latheShell(vase, { height: 20, colors: 4 });
+  const { metal, glass } = splitGlass(obj);
+  assert.equal(filled(metal) + filled(glass), filled(obj), 'every voxel is in exactly one part');
+  const cx = (obj.size[0] - 1) / 2;
+  const firstWall = (o, y) => [...Array(o.size[0]).keys()].map((x) => o.get(x, y, cx)).find(Boolean);
+  assert.ok(firstWall(glass, 3), 'the blue body is glass');
+  assert.ok(!firstWall(metal, 3), 'and not metal');
+  assert.ok(firstWall(metal, 17), 'the bronze neck is metal');
+  assert.ok(!firstWall(glass, 17));
+  for (let i = 0; i < obj.data.length; i++) assert.ok(!(metal.data[i] && glass.data[i]), 'no voxel in both');
+});
+
+test('liquidModel fills the inside of the shell from the bottom, never the wall', () => {
+  const { obj } = latheShell(vase, { height: 20, colors: 4 });
+  const top = fillLayers(obj);
+  assert.equal(top, Math.max(...bodyLayers(obj)));
+  assert.equal(filled(liquidModel(obj, 0)), 0);
+  const half = liquidModel(obj, 0.5);
+  const full = liquidModel(obj, 1);
+  assert.ok(filled(half) > 0 && filled(full) > filled(half) * 1.5);
+  // inside the shell only: never on a wall voxel, never above the body, never in the closed base
+  for (let z = 0; z < obj.size[2]; z++) {
+    for (let y = 0; y < obj.size[1]; y++) {
+      for (let x = 0; x < obj.size[0]; x++) {
+        if (!full.get(x, y, z)) continue;
+        assert.equal(obj.get(x, y, z), 0, 'not on the wall');
+        assert.ok(y >= 1 && y <= top, `level ${y}`);
+      }
+    }
+  }
+  // it fills from the bottom: whatever the half level holds, the full level holds too
+  for (let i = 0; i < half.data.length; i++) if (half.data[i]) assert.ok(full.data[i]);
+  assert.deepEqual(full.palette[1], LIQUID_COLOR);
+});
+
+test('the liquid is enclosed by the shell on every side of its layer', () => {
+  const { obj } = latheShell(vase, { height: 20, colors: 4 });
+  const full = liquidModel(obj, 1);
+  const wallBeside = (x, y, z, dx, dz) => {
+    for (let k = 1; k < obj.size[0]; k++) if (obj.get(x + dx * k, y, z + dz * k)) return true;
+    return false;
+  };
+  for (let z = 0; z < obj.size[2]; z++) {
+    for (let y = 1; y < obj.size[1]; y++) {
+      for (let x = 0; x < obj.size[0]; x++) {
+        if (!full.get(x, y, z)) continue;
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) assert.ok(wallBeside(x, y, z, dx, dz));
+      }
+    }
+  }
 });
 
 test('toolSpecFromModel derives the collision box and grab size from the voxel model', () => {
