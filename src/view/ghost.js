@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { LAYOUT, VIEW } from '../config/index.js';
 import { ghostModel, catModel, cushionModel } from '../assets.js';
+import { rules } from '../game/rules.js';
+import { voxelsOf, matchSets, morphPoint, morphColor } from '../game/morph.js';
+import { mulberry32 } from '../paper.js';
 
 // Level 3 to look at: smoke over the crucible, the ghost, the straw cat that wakes, the cushion.
 export function createGhostView(view) {
@@ -17,6 +20,40 @@ export function createGhostView(view) {
   cushion.position.set(LAYOUT.cushion.x, 0, LAYOUT.cushion.z);
   cushion.visible = false;
   view.remesh(cushion, cushionModel());
+
+  // the morph: the straw cat's voxels walk to their places in the living cat (cubes, drawn as one instanced mesh)
+  let morph = null; // { eyes, pairs, jitters, size, mesh }
+  const morphColor3 = new THREE.Color();
+  function prepareMorph(eyes) {
+    if (morph?.eyes === eyes) return;
+    if (morph) {
+      view.world.remove(morph.mesh);
+      morph.mesh.dispose();
+    }
+    const straw = catModel('straw', eyes);
+    const pairs = matchSets(voxelsOf(straw), voxelsOf(catModel('alive', eyes, 0)));
+    const rand = mulberry32(5);
+    const jitters = pairs.map(() => ({ lift: 2 + rand() * 7, swirlX: (rand() - 0.5) * 10, swirlZ: (rand() - 0.5) * 8 }));
+    const mesh = new THREE.InstancedMesh(new THREE.BoxGeometry(LAYOUT.voxel, LAYOUT.voxel, LAYOUT.voxel), new THREE.MeshBasicMaterial({ color: 0xffffff }), pairs.length);
+    mesh.setColorAt(0, morphColor3.setRGB(1, 1, 1));
+    mesh.frustumCulled = false;
+    mesh.visible = false;
+    view.world.add(mesh);
+    morph = { eyes, pairs, jitters, size: straw.size, mesh };
+  }
+  function drawMorph(t) {
+    const { pairs, jitters, size, mesh } = morph;
+    const v = LAYOUT.voxel;
+    pairs.forEach((pair, i) => {
+      const p = morphPoint(pair, t, jitters[i]);
+      matrix.setPosition(LAYOUT.cat.x + (p.x - size[0] / 2 + 0.5) * v, (p.y + 0.5) * v, LAYOUT.cat.z + (p.z - size[2] / 2 + 0.5) * v);
+      mesh.setMatrixAt(i, matrix);
+      const [r, g, b] = morphColor(pair, t);
+      mesh.setColorAt(i, morphColor3.setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace));
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.instanceColor.needsUpdate = true;
+  }
 
   const smoke = new THREE.InstancedMesh(new THREE.BoxGeometry(LAYOUT.voxel * 2, LAYOUT.voxel * 2, LAYOUT.voxel * 2), new THREE.MeshBasicMaterial({ color: G.smokeColor }), G.smokeCubes);
   smoke.frustumCulled = false;
@@ -52,7 +89,13 @@ export function createGhostView(view) {
       smoke.instanceMatrix.needsUpdate = true;
 
       // the cat: straw until the ghost is caught, alive after; it runs to the cushion (in circles with fool's gold eyes)
-      cat.visible = level3 && g.phase === 'trapped';
+      const morphing = level3 && f.released && !f.alive && g.phase === 'trapped'; // the voxels of the straw cat walk to the living cat
+      if (morphing) {
+        prepareMorph(f.eyes);
+        drawMorph(Math.min(1, f.wake / rules().WAKE_TIME));
+      }
+      if (morph) morph.mesh.visible = morphing;
+      cat.visible = level3 && g.phase === 'trapped' && !morphing;
       if (cat.visible) {
         const look = f.alive ? 'alive' : 'straw';
         const frame = f.alive && f.run < 1 ? Math.floor(time * 6) % 2 : 0;
@@ -82,7 +125,7 @@ export function createGhostView(view) {
         target.copy(vialPos).add(at.set(0, 0.0, 0));
       } else if (level3 && g.phase === 'trapped' && f.released && !f.alive) {
         shown = true;
-        size = 0.4 * (1 - f.wake / 1.2);
+        size = 0.4 * (1 - f.wake / rules().WAKE_TIME);
         target.set(LAYOUT.cat.x, 0.04, LAYOUT.cat.z);
       }
       ghostMesh.visible = shown && size > 0.02;

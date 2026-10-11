@@ -393,7 +393,9 @@ try {
   check(await game(() => window.__game.state.finale.released), 'the open vial over the cat sets the ghost free');
   await page.keyboard.up('Shift');
   await page.mouse.up();
-  await new Promise((r) => setTimeout(r, 1800));
+  await page.waitForFunction(() => window.__game.state.finale.wake > 0.9, { timeout: 30000 }).catch(() => {});
+  check(!(await game(() => window.__game.state.finale.alive)) && colorsIn(await shot('morph')) > 40, 'the voxels of the straw cat are walking (the morph renders)');
+  await page.waitForFunction(() => window.__game.state.finale.alive, { timeout: 30000 }).catch(() => {});
   check(await game(() => window.__game.state.finale.alive), 'the cat wakes');
   check(colorsIn(await shot('cat')) > 40, 'the living cat renders');
   await new Promise((r) => setTimeout(r, 7000));

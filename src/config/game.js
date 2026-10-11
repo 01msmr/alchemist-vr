@@ -82,7 +82,7 @@ export const CFG = {
   TRAP_HOLD: 1.5, // s the inverted vial must hold over the ring
   TRAP_RADIUS: 0.07, // m: the vial's mouth must be this close to the ring's middle
   EYE_RADIUS: 0.05, // m: the gold lies this close to the cat's eyes
-  WAKE_TIME: 1.2, // s from opening the vial to a living cat
+  WAKE_TIME: 2.2, // s from opening the vial to a living cat: the voxel morph of the straw cat takes all of it
   RUN_TIME: 6, // s the cat needs to the cushion
 
   AMALGAM_HOLD: 1.5, // s of liquid lead + dose in window
