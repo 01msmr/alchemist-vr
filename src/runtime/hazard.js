@@ -13,6 +13,7 @@ export function createHazardWorld(ctx, hazardView, bookView, audio) {
   let hapticLeft = 0;
   let time = 0;
   let crackleAcc = 0;
+  let iconShown = false;
 
   function fail(kind) {
     failure = kind;
@@ -28,6 +29,8 @@ export function createHazardWorld(ctx, hazardView, bookView, audio) {
   }
 
   return {
+    get iconShown() { return iconShown; },
+
     // a restart wipes the notes and the signs
     reset() {
       last = 'lead';
@@ -49,6 +52,7 @@ export function createHazardWorld(ctx, hazardView, bookView, audio) {
       if (failureLeft === 0) failure = null;
 
       const icon = failure ? { name: 'skull', color: HAZARD.icon.fail } : h.level >= HAZARD.iconFrom ? { name: h.kind === 'lump' ? 'stir' : 'fire', color: h.kind === 'lump' ? HAZARD.icon.stir : HAZARD.icon.warn } : null;
+      iconShown = icon !== null;
       hazardView.update(dt, h.level, icon, time);
 
       hapticLeft -= dt;

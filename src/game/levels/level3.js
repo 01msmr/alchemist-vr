@@ -43,6 +43,18 @@ export const level3 = {
     s.vialBroken = false;
   },
 
+  hint(s) {
+    const g = s.ghost;
+    const f = s.finale;
+    if (f.released) return null;
+    if (g.phase === 'trapped') return { icon: f.eyes ? 'vial' : 'eye', at: 'cat' };
+    if (g.phase === 'lured') return { icon: 'vial', at: 'ring' };
+    if (g.phase === 'visible') return s.ring.closed || g.mocked ? null : { icon: 'ring', at: 'ring' };
+    if (!s.candleLit) return s.match && s.match.lit > 0 ? { icon: 'fire', at: 'wick' } : { icon: 'strike', at: 'matchbox' };
+    if ((s.crucible.amounts.herb ?? 0) < 0.03) return { icon: 'herb', at: 'herbs' };
+    return { icon: 'wait', at: 'crucible' };
+  },
+
   complete: (s) => s.finale.done,
 
   scene: { tools: ['vial'], props: ['herbs', 'salt'] },

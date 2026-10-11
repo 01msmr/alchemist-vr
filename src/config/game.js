@@ -62,6 +62,7 @@ export const CFG = {
 
   BREAK_SPEED_FACTOR: 1, // difficulty: the vial's break speed (TOOLS.vial.breakSpeed) is multiplied by this
   SPARE_VIALS: 0, // difficulty: replacement vials on the shelf
+  HINT_DELAY: 12, // difficulty: s of no progress until the symbol for the next step shows (0 = at once, huge = never)
   SPARE_DELAY: 1.5, // s after a vial broke until the spare stands in its place
 
   // level 3: herbs on the flame make smoke, smoke shows the ghost, a closed salt ring with gold in it holds it, the

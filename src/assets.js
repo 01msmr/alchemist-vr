@@ -152,7 +152,7 @@ export function ghostModel(frame = 0) {
   });
 }
 
-// 17x10x6 cm cat facing +x: straw (a figure) or alive (orange, legs in two frames when it runs). `eyes` = the gold kind
+// 17x10x6 cm cat facing +x: straw (a figure) or alive (black, legs in two frames when it runs). `eyes` = the gold kind
 // lying in its eye sockets, or null for dark ones.
 export function catModel(look, eyes = null, frame = 0) {
   const color = look === 'alive' ? P.CAT : P.GOLD_DULL;

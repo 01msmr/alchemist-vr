@@ -56,6 +56,17 @@ export const level1 = {
     },
   ],
 
+  // the symbol for the next step: { icon, at } (at = a place, see runtime/hints.js), or null
+  hint(s, info) {
+    const c = s.crucible;
+    const r = rules();
+    if (s.vialBroken || c.content !== 'lead') return null;
+    if (!s.candleLit) return s.match && s.match.lit > 0 ? { icon: 'fire', at: 'wick' } : { icon: 'strike', at: 'matchbox' };
+    if (c.temp < r.MELT) return { icon: 'wait', at: 'crucible' };
+    if (mercury(c) < r.DOSE_MIN) return info.vialHeld ? { icon: 'pour', at: 'crucible' } : { icon: 'vial', at: 'vial' };
+    return { icon: 'wait', at: 'crucible' };
+  },
+
   complete: (s) => s.crucible.content === 'amalgam',
 
   // the objects of this level; the ones that were there before and are not here any more are cleared away

@@ -27,6 +27,7 @@ export function installTestHook(ctx) {
       ctx.state.level = n;
       ctx.runner.enter(LEVELS[n - 1], before);
     },
+    get hint() { return levelOf(ctx.state).hint?.(ctx.state, { vialHeld: ctx.tools.tools.vial.holder !== null }) ?? null; },
     get notes() { return ctx.bookView.notes; },
     get fade() { return ctx.transition.frame; },
     get book() { return ctx.book.book; },

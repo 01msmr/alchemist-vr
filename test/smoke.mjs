@@ -214,6 +214,8 @@ try {
 
   // 11b. the book of instructions: it turns with the levels, and by hand at its lower corners (mouse click, arrow keys)
   check((await game(() => window.__game.book.shown)) === 0, 'the book is open at the first level');
+  const firstHint = await game(() => window.__game.hint);
+  check(firstHint && firstHint.icon === 'strike' && firstHint.at === 'matchbox', `the first step is a match from the box (${JSON.stringify(firstHint)})`);
   await game(() => {
     const g = window.__game;
     const o = g.view.world.position; // look at the book

@@ -64,7 +64,7 @@ const COLORS = {
   SALT: [245, 245, 250],
   HERB: [70, 140, 60],
   GHOST: [220, 235, 245],
-  CAT: [220, 130, 50],
+  CAT: [24, 24, 28], // the living cat is black (a very dark grey, so the shading still shows its form)
 };
 
 export const PALETTE = [[0, 0, 0]];
