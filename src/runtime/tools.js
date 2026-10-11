@@ -287,5 +287,34 @@ export function createTools(ctx) {
     }
   }
 
-  return { tools, list, spawn, spawnAtRest, deactivate, release, lose, updateHandTargets, stepPhysics, refreshLook };
+  // The white outline around the tools a hint points at or a hand could take now: a slightly larger shell of the same model,
+  // seen from inside, pulsing. `ids`: the tools to outline.
+  const glows = new Map(); // id -> [mesh]
+  function glowOf(t) {
+    if (!glows.has(t.id)) {
+      const shells = t.pickMeshes.map((source) => {
+        const shell = new THREE.Mesh(source.geometry, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, side: THREE.BackSide, depthWrite: false }));
+        shell.scale.setScalar(1.22);
+        shell.position.copy(source.position);
+        shell.position.y -= 0.11 * 2 * t.spec.half.y; // the model grows about its bottom: bring it back to the middle
+        shell.renderOrder = 2;
+        t.group.add(shell);
+        return shell;
+      });
+      glows.set(t.id, shells);
+    }
+    return glows.get(t.id);
+  }
+  function refreshGlow(ids, time) {
+    for (const t of list) {
+      const on = ids.has(t.id) && t.active;
+      if (!on && !glows.has(t.id)) continue;
+      for (const shell of glowOf(t)) {
+        shell.visible = on;
+        shell.material.opacity = 0.35 + 0.25 * Math.sin(time * 6);
+      }
+    }
+  }
+
+  return { tools, list, spawn, spawnAtRest, deactivate, release, lose, updateHandTargets, stepPhysics, refreshLook, refreshGlow };
 }

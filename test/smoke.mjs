@@ -274,6 +274,7 @@ try {
   const vialTip = vialCenter; // grabbed in the middle of the body
   await fake(1, vialTip);
   await new Promise((r) => setTimeout(r, 500));
+  check((await game(() => window.__game.hover)).includes('vial'), 'a tool within reach of a hand that can take it is outlined');
   await fake(1, vialTip, 1, 0);
   await new Promise((r) => setTimeout(r, 400));
   check((await game(() => window.__game.tool('vial').holder)) === 1, 'the trigger closes the tongs on the vial');
@@ -304,6 +305,16 @@ try {
   await fake(0, { x: 0.1, y: 0.1, z: 0.1 }, 1, 0);
   await new Promise((r) => setTimeout(r, 300));
   check((await game(() => window.__game.hands[0].held)) === null, 'the spoon does not pick up the vial');
+  // a finger over a protected area: the area is drawn and the missing distance is shown at the finger; an outline for a tool in reach
+  const matchbox = await game(() => { const c = window.__game.zones.find((z) => z.r !== undefined && Math.abs(z.x + 0.18) < 0.01); return c ? { x: c.x, z: c.z, r: c.r } : null; });
+  check(matchbox !== null, 'the matchbox has a protected area');
+  await fake(1, { x: matchbox.x + matchbox.r * 0.5, y: 0.01, z: matchbox.z });
+  await frame();
+  await frame();
+  const finger = await game(() => window.__game.fingers[0]);
+  check(finger && finger.missing > 0.005 && finger.missing < matchbox.r , `a finger over the area shows how far it still has to go (${finger ? (finger.missing * 100).toFixed(1) : '-'} cm)`);
+  check(await game(() => window.__game.calibrationHelp), 'the protected areas are drawn');
+
   // the console with a controller: tap a button with the tongs' tip; pinch the bead and pull the cord
   const buttonAt = await game(() => { const c = window.__game.consoleCenter('difficulty:easy'); return { x: c.x, y: 0, z: c.z }; });
   const tapPath = [0.1, 0.07, 0.04, 0.01, 0.0, 0.02, 0.05]; // the tip comes down onto the table and goes up again, a centimeter or two per frame

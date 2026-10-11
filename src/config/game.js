@@ -34,7 +34,7 @@ export const CFG = {
   MELT: 0.5, // lead is liquid (accepts mercury) from here
   CRITICAL: 0.85, // glow turns white-yellow: warning
   BURN: 0.95, // holding this long burns the lead
-  HEAT_RATE: 0.12, // per second with burner on
+  HEAT_RATE: 0.08, // per second with burner on (slow enough to take the vial and pour before it burns)
   COOL_RATE: 0.025, // per second with burner off
 
   DOSE_MIN: 0.7,
@@ -62,7 +62,7 @@ export const CFG = {
 
   BREAK_SPEED_FACTOR: 1, // difficulty: the vial's break speed (TOOLS.vial.breakSpeed) is multiplied by this
   SPARE_VIALS: 0, // difficulty: replacement vials on the shelf
-  HINT_DELAY: 12, // difficulty: s of no progress until the symbol for the next step shows (0 = at once, huge = never)
+  HINT_DELAY: 6, // difficulty: s of no progress until the symbol for the next step shows (0 = at once, huge = never)
   SPARE_DELAY: 1.5, // s after a vial broke until the spare stands in its place
 
   // level 3: herbs on the flame make smoke, smoke shows the ghost, a closed salt ring with gold in it holds it, the

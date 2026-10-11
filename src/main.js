@@ -31,6 +31,7 @@ import { createHazardView } from './view/hazard.js';
 import { createHazardWorld } from './runtime/hazard.js';
 import { createAudio } from './audio.js';
 import { createHintView } from './view/hints.js';
+import { createZonesView } from './view/zones.js';
 import { createHints } from './runtime/hints.js';
 import { createTransitionRuntime } from './runtime/transition.js';
 import { createBookWorld } from './runtime/book.js';
@@ -49,6 +50,7 @@ const ctx = {
   view,
   state: createState(),
   hands: [],
+  hover: new Set(), // the tools a hand could take right now (outlined)
   drops: [], // mercury drops and sulfur grains in flight
   puddles: createPuddles(LAYOUT.tableBounds),
   bottle: { shell: bottleShell },
@@ -106,6 +108,7 @@ const bookView = createBookView(view);
 ctx.bookView = bookView;
 ctx.transition = createTransitionRuntime(ctx, createFade(view));
 const hints = createHints(ctx, createHintView(view));
+const zonesView = createZonesView(view);
 ctx.hazard = createHazardWorld(ctx, createHazardView(view), bookView, createAudio(view.renderer));
 ctx.book = createBookWorld(ctx);
 ctx.spares = createSpares(ctx);
@@ -165,8 +168,10 @@ view.renderer.setAnimationLoop(() => {
   tools.refreshLook(state);
   ghostView.update(state, time, vial.pos);
   ctx.spares.update(dt);
+  zonesView.update(ctx.handInput.zones(), ctx.calibration.help, ctx.calibration.fingers); // the protected areas, in white
   ctx.hazard.update(dt);
   hints.update(dt, ctx.hazard.iconShown);
+  tools.refreshGlow(new Set([...ctx.hover, ...hints.targets]), time); // outline what the hint points at and what a hand could take
   ctx.book.update(dt, state.level);
   bookView.update(ctx.book.book);
   shelfView.update(ctx.handTools.inShelf, state.spareVials);

@@ -62,15 +62,15 @@ export const level2 = {
     },
   ],
 
-  hint(s) {
+  hint(s, info) {
     const c = s.crucible;
     const r = rules();
     if (['gold', 'dull', 'fools'].includes(c.content)) return s.nugget ? null : { icon: 'gem', at: 'crucible' };
     if (c.content !== 'amalgam') return null;
     if (!s.candleLit) return s.match && s.match.lit > 0 ? { icon: 'fire', at: 'wick' } : { icon: 'strike', at: 'matchbox' };
-    if (sulfur(c) < r.SULFUR_MIN) return { icon: 'spoon', at: 'dish' };
-    if (c.temp < r.MELT) return { icon: 'wait', at: 'crucible' };
-    return { icon: 'stir', at: 'crucible' };
+    if (sulfur(c) < r.SULFUR_MIN) return { icon: 'spoon', at: 'dish', urgent: true };
+    if (c.temp < r.MELT) return { icon: 'wait', at: 'crucible', urgent: true };
+    return info.rodHeld ? { icon: 'stir', at: 'crucible', urgent: true } : { icon: 'rod', at: 'rod', urgent: true, target: 'rod' };
   },
 
   complete: (s) => s.nugget !== null, // the gold has been taken out

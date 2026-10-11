@@ -126,9 +126,9 @@ export function dishModel(powder = P.SULFUR) {
   });
 }
 
-// 2x15x2 cm stirring rod, the bottom end is the tip.
+// 1.5x15x1.5 cm stirring rod (thin enough to pinch), the bottom end is the tip.
 export function rodModel() {
-  return sample([2, 15, 2], () => P.ROD);
+  return sample([1.5, 15, 1.5], () => P.ROD);
 }
 
 // 3x2x2 cm gold nugget; the kind decides the color (real gold, dull gold or fool's gold).

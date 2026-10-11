@@ -6,7 +6,7 @@ export const DIFFICULTY = {
     DOSE_MIN: 0.55, DOSE_MAX: 1.45, // mercury window
     SULFUR_MIN: 0.25, SULFUR_MAX: 0.85,
     BURN: 0.98, BURN_HOLD: 4, // temperature where the lead burns, and how long it can stay there
-    HEAT_RATE: 0.09, // slower heating is easier to control
+    HEAT_RATE: 0.055, // slower heating is easier to control
     STIR_NEEDED: 2,
     LUMP_HOLD: 14, // s of right conditions without stirring until it clumps
     STRIKE_SPEED: 0.7, STRIKE_MAX: 4.0,
@@ -22,7 +22,7 @@ export const DIFFICULTY = {
     DOSE_MIN: 0.85, DOSE_MAX: 1.15,
     SULFUR_MIN: 0.45, SULFUR_MAX: 0.65,
     BURN: 0.9, BURN_HOLD: 1.5,
-    HEAT_RATE: 0.16,
+    HEAT_RATE: 0.11,
     STIR_NEEDED: 4.5,
     LUMP_HOLD: 6,
     STRIKE_SPEED: 1.3, STRIKE_MAX: 2.4,

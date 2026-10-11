@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { CONSOLE as K, INPUT } from '../config/index.js';
+import { CONSOLE as K, INPUT, LAYOUT } from '../config/index.js';
 import { createTapCounter } from '../calibration.js';
 import { controls, hitControl, createCord, cordPosition } from '../game/console.js';
-import { hitBookZone } from '../game/book.js';
+import { hitBookZone, bookZones } from '../game/book.js';
 import { createConsoleView } from '../view/console.js';
 import { indexLocal, tipLocal, palmLocal } from './space.js';
 import { pulse } from '../vr.js';
@@ -73,9 +73,14 @@ export function createConsole(ctx) {
     cord,
     get bead() { return beadAt(); },
 
-    // Is this point (table-local) at a control or at the bead? Calibration taps stay away from them.
-    near(point) {
-      return hitAny(point.x, point.z, C.keepAway) !== null || point.distanceTo(beadAt()) < K.cord.grabRadius + C.keepAway;
+    // the protected areas of the buttons and the book's corners, grown by `away` (see runtime/hands.js)
+    zones(away) {
+      const list = controls().map((c) => ({ x: c.x, z: c.z, hx: c.halfX + away, hz: c.halfZ + away }));
+      for (const zone of bookZones()) { // the corners are in the book's frame: turn them to the table
+        const B = LAYOUT.book;
+        list.push({ x: B.x + zone.x * Math.cos(B.yaw) + zone.z * Math.sin(B.yaw), z: B.z - zone.x * Math.sin(B.yaw) + zone.z * Math.cos(B.yaw), r: Math.hypot(zone.halfX, zone.halfZ) + away });
+      }
+      return list;
     },
 
     // the center of a control (or of the bead) on the table, for the smoke test

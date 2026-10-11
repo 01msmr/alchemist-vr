@@ -7,6 +7,7 @@ import { holdOffset } from '../tracking.js';
 import { analog, showGrip, pulse } from '../vr.js';
 import { tipLocal, palmLocal } from './space.js';
 import { canDo } from '../handtools.js';
+import { clearance } from '../game/zones.js';
 
 const ONE = new THREE.Vector3(1, 1, 1);
 const { reach, contact, analog: A, motion, haptics: H } = INPUT;
@@ -115,28 +116,49 @@ export function createHandInput(ctx) {
   }
 
   return {
-    // Is this point (world-local) near anything a pinch could pick up or press? A pinch held still next to
-    // such a thing is a missed grab, not a calibration of the table.
-    nearThing(point) {
+    // The protected areas on the table right now: around everything a pinch could pick up or press (grown by the keep-away
+    // distance). A tap inside one is a missed grab, not a calibration of the table. [{ x, z, r } | { x, z, hx, hz }]
+    zones() {
       const away = INPUT.calibration.keepAway;
+      const list = [];
       for (const t of ctx.tools.list) {
         if (!t.active) continue;
-        const a = t.pos.clone().addScaledVector(t.up, -t.spec.axisHalf);
-        const b = t.pos.clone().addScaledVector(t.up, t.spec.axisHalf);
-        if (distanceToSegment(point, a, b) < t.spec.grabRadius + away) return true;
+        const flat = Math.hypot(t.up.x, t.up.z); // a tool lying down covers more of the table
+        list.push({ x: t.pos.x, z: t.pos.z, r: t.spec.axisHalf * flat + t.spec.grabRadius + away });
       }
-      if (point.distanceTo(ctx.matches.boxCenter) < reach.matchbox + away) return true;
-      if (levelOf(ctx.state).scene.props.some((name) => PROPS[name].source && tmp.set(PROPS[name].source.center.x, PROPS[name].source.center.y, PROPS[name].source.center.z).distanceTo(point) < PROPS[name].source.reach + away)) return true;
-      if (point.distanceTo(wick) < reach.snuff + away) return true;
-      if (Math.hypot(point.x - c.x, point.z - c.z) < reach.nugget + away) return true;
-      if (ctx.console?.near(point)) return true;
-      return point.distanceTo(ctx.hud.panel.position) < reach.reset + away;
+      list.push({ x: ctx.matches.boxCenter.x, z: ctx.matches.boxCenter.z, r: reach.matchbox + away });
+      for (const name of levelOf(ctx.state).scene.props) {
+        const source = PROPS[name].source;
+        if (source) list.push({ x: source.center.x, z: source.center.z, r: source.reach + away });
+      }
+      list.push({ x: c.x, z: c.z, r: Math.max(reach.nugget, reach.snuff) + away }); // the crucible and its flame
+      list.push(...(ctx.console?.zones(away) ?? []));
+      return list;
+    },
+
+    // how far a table point is from the protected areas: { margin, dx, dz, zone } (margin < 0: still too close by that much)
+    clearance(x, z) {
+      return clearance(this.zones(), x, z);
+    },
+
+    nearThing(point) {
+      return clearance(this.zones(), point.x, point.z).margin < 0;
     },
 
     update(dt) {
+      ctx.hover.clear(); // the tools a hand could take right now (they get an outline)
       for (const hand of ctx.hands) {
         const { pinch, squeeze } = analog(hand);
         showGrip(hand, pinch);
+        if (hand.held === null && (hand.mode === 'tracked' || (hand.mode === 'controller' && canDo(hand.handTool, 'tool')))) { // a hand that can take a tool: outline the one in reach
+          tipLocal(view, hand, tmp);
+          for (const t of ctx.tools.list) {
+            if (!t.active || t.holder !== null) continue;
+            const a = t.pos.clone().addScaledVector(t.up, -t.spec.axisHalf);
+            const b = t.pos.clone().addScaledVector(t.up, t.spec.axisHalf);
+            if (distanceToSegment(tmp, a, b) <= t.spec.grabRadius) ctx.hover.add(t.id);
+          }
+        }
         // fingertip velocity: grains and thrown things carry it
         tipLocal(view, hand, tmp);
         if (hand.tipValid && dt > 0) hand.tipVel.lerp(new THREE.Vector3().subVectors(tmp, hand.tipPos).divideScalar(dt), motion.smoothing).clampLength(0, motion.maxSpeed);

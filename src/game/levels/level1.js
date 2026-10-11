@@ -57,14 +57,16 @@ export const level1 = {
   ],
 
   // the symbol for the next step: { icon, at } (at = a place, see runtime/hints.js), or null
+  // `urgent`: the lead is heating, there is not much time (the hint shows at once on normal)
   hint(s, info) {
     const c = s.crucible;
     const r = rules();
     if (s.vialBroken || c.content !== 'lead') return null;
     if (!s.candleLit) return s.match && s.match.lit > 0 ? { icon: 'fire', at: 'wick' } : { icon: 'strike', at: 'matchbox' };
-    if (c.temp < r.MELT) return { icon: 'wait', at: 'crucible' };
-    if (mercury(c) < r.DOSE_MIN) return info.vialHeld ? { icon: 'pour', at: 'crucible' } : { icon: 'vial', at: 'vial' };
-    return { icon: 'wait', at: 'crucible' };
+    // the flame is lit: take the vial now, so that it is ready when the lead melts
+    if (mercury(c) >= r.DOSE_MIN) return { icon: 'wait', at: 'crucible', urgent: true };
+    if (!info.vialHeld) return { icon: 'vial', at: 'vial', urgent: true, target: 'vial' };
+    return c.temp < r.MELT ? { icon: 'wait', at: 'crucible', urgent: true } : { icon: 'pour', at: 'crucible', urgent: true };
   },
 
   complete: (s) => s.crucible.content === 'amalgam',

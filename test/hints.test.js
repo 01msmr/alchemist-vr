@@ -29,21 +29,35 @@ test('easy shows the symbol at once, hard never', () => {
   assert.equal(stepHintTimer(t2, { icon: 'fire', at: 'wick' }, 3600, rulesFor('hard').HINT_DELAY), false);
 });
 
-test('level 1 points at the next step: match, flame, wait for heat, the vial, the pour, wait', () => {
+test('level 1 points at the next step: match, flame, then at once the vial (while it heats), the wait, the pour', () => {
   const s = createState();
   assert.deepEqual(hint(1, s), { icon: 'strike', at: 'matchbox' });
   s.match = { lit: 5, stroke: 0, broken: false };
   assert.deepEqual(hint(1, s), { icon: 'fire', at: 'wick' });
   s.candleLit = true;
   s.match = null;
-  assert.deepEqual(hint(1, s), { icon: 'wait', at: 'crucible' }, 'heating');
+  assert.deepEqual(hint(1, s), { icon: 'vial', at: 'vial', urgent: true, target: 'vial' }, 'take the vial while the lead is still heating');
+  assert.deepEqual(hint(1, s, { vialHeld: true }), { icon: 'wait', at: 'crucible', urgent: true }, 'not melted yet');
   s.crucible.temp = R.MELT + 0.1;
-  assert.deepEqual(hint(1, s), { icon: 'vial', at: 'vial' });
-  assert.deepEqual(hint(1, s, { vialHeld: true }), { icon: 'pour', at: 'crucible' });
+  assert.deepEqual(hint(1, s, { vialHeld: true }), { icon: 'pour', at: 'crucible', urgent: true });
   s.crucible.amounts.hg = (R.DOSE_MIN + R.DOSE_MAX) / 2;
-  assert.deepEqual(hint(1, s), { icon: 'wait', at: 'crucible' }, 'hold it');
+  assert.deepEqual(hint(1, s), { icon: 'wait', at: 'crucible', urgent: true }, 'hold it');
   s.crucible.content = 'amalgam';
   assert.equal(hint(1, s), null, 'done');
+});
+
+test('an urgent step shows within half a second on normal and easy, never on hard', () => {
+  const urgent = { icon: 'vial', at: 'vial', urgent: true };
+  const plain = { icon: 'strike', at: 'matchbox' };
+  const t1 = createHintTimer();
+  stepHintTimer(t1, urgent, 0, rulesFor('normal').HINT_DELAY);
+  assert.equal(stepHintTimer(t1, urgent, 0.6, rulesFor('normal').HINT_DELAY), true);
+  const t2 = createHintTimer();
+  stepHintTimer(t2, plain, 0, rulesFor('normal').HINT_DELAY);
+  assert.equal(stepHintTimer(t2, plain, 0.6, rulesFor('normal').HINT_DELAY), false, 'a plain step waits for the delay');
+  const t3 = createHintTimer();
+  stepHintTimer(t3, urgent, 0, rulesFor('hard').HINT_DELAY);
+  assert.equal(stepHintTimer(t3, urgent, 100, rulesFor('hard').HINT_DELAY), false);
 });
 
 test('level 1 gives no symbol for a broken vial', () => {
@@ -52,17 +66,18 @@ test('level 1 gives no symbol for a broken vial', () => {
   assert.equal(hint(1, s), null);
 });
 
-test('level 2: sulfur from the dish, wait for the heat, stir, take the gold', () => {
+test('level 2: sulfur from the dish at once, wait for the heat, the rod, stir, take the gold', () => {
   const s = createState();
   s.level = 2;
   s.candleLit = true;
   s.crucible.content = 'amalgam';
   s.crucible.temp = 0.2;
-  assert.deepEqual(hint(2, s), { icon: 'spoon', at: 'dish' });
+  assert.deepEqual(hint(2, s), { icon: 'spoon', at: 'dish', urgent: true });
   s.crucible.amounts.sulfur = 0.5;
-  assert.deepEqual(hint(2, s), { icon: 'wait', at: 'crucible' });
+  assert.deepEqual(hint(2, s), { icon: 'wait', at: 'crucible', urgent: true });
   s.crucible.temp = R.MELT + 0.1;
-  assert.deepEqual(hint(2, s), { icon: 'stir', at: 'crucible' });
+  assert.deepEqual(hint(2, s), { icon: 'rod', at: 'rod', urgent: true, target: 'rod' });
+  assert.deepEqual(hint(2, s, { rodHeld: true }), { icon: 'stir', at: 'crucible', urgent: true });
   s.crucible.content = 'gold';
   assert.deepEqual(hint(2, s), { icon: 'gem', at: 'crucible' });
   s.nugget = { kind: 'gold', quality: 0.9 };

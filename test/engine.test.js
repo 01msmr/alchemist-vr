@@ -26,7 +26,7 @@ test('the candle heats only after a lit match lights it', () => {
   lightCandle(s);
   assert.equal(s.candleLit, true);
   run(s, 1);
-  assert.ok(s.crucible.temp > 0.09);
+  assert.ok(Math.abs(s.crucible.temp - CFG.HEAT_RATE) < 0.01, 'one second of flame heats by the heat rate');
 
   snuffCandle(s);
   const t = s.crucible.temp;

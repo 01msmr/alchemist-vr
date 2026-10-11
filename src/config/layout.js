@@ -6,6 +6,7 @@ const table = { w: 1.6, d: 0.8, h: 0.85, heightRange: [0.4, 1.4], z: -0.65 };
 const worldOrigin = { x: 0, y: table.h, z: -0.45 }; // in the scene
 
 const backEdge = table.z - worldOrigin.z - table.d / 2; // the table's far edge (world-local z)
+const shelfZ = backEdge + 0.22; // the shelf stands this far in front of the far edge (15 cm nearer than it was, to be within reach)
 
 export const LAYOUT = {
   voxel: 0.0075, // 1 voxel = 0.75 cm (was 1 cm: more detail at the same size; the models in assets.js are described in cm)
@@ -38,11 +39,11 @@ export const LAYOUT = {
   book: { x: -0.55, z: -0.12, pageW: 0.2, pageD: 0.28, yaw: 0.1, zone: 0.07 },
   // where the tools start: x, z on the table; `lying` = on its side with its axis along x, else standing up
   // (y = where it stands: the shelf's top; the main tools start in the left half of the shelf)
-  rest: { vial: { x: -0.425, y: 0.12, z: backEdge + 0.07, lying: false }, rod: { x: -0.2, y: 0.12, z: backEdge + 0.07, lying: true } },
+  rest: { vial: { x: -0.425, y: 0.12, z: shelfZ, lying: false }, rod: { x: -0.2, y: 0.12, z: shelfZ, lying: true } },
   // the shelf along the far edge: main tools in the left half, hand tools in the right; the hand tools are `slots`
   // (x = the middle of the compartment, `reach` = how close a controller's working end must be to put a tool back or take it)
   shelf: {
-    y: 0.12, z: backEdge + 0.07, depth: 0.1, thickness: 0.012, post: 0.02,
+    y: 0.12, z: shelfZ, depth: 0.1, thickness: 0.012, post: 0.02,
     dividers: [-0.7, -0.55, -0.3, 0, 0.31, 0.69], // x of the thin walls between compartments (0 = between main and hand tools)
     slots: [{ id: 'tongs', x: 0.17 }, { id: 'spoon', x: 0.5 }],
     spare: { x: -0.625 }, // the compartment of the spare vial (easy only)
