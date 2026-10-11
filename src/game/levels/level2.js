@@ -12,6 +12,7 @@ export const level2 = {
 
   guide: {
     icon: 'fire', // the picture on the left page
+    motto: 'Das Amalgam sei zu Gold verwandelt.', // under the title on the card between the experiments
     title: 'Das zweite Werk',
     steps: [
       'Nimm mit dem Löffel Schwefel aus der Schale und lass ihn in den Tiegel fallen. Der grüne Bogen zeigt das rechte Maß.',

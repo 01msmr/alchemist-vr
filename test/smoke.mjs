@@ -77,7 +77,14 @@ try {
 
   // 4. level 2: pretend the amalgam exists and wait for the tidy-up
   await game(() => { Object.assign(window.__game.state.crucible, { content: 'amalgam', quality: 0.9, temp: 0.7 }); });
-  await new Promise((r) => setTimeout(r, 4200));
+  // the picture fades to black, the level changes in the dark, then it brightens (game time runs slower than the clock here)
+  await page.waitForFunction(() => window.__game.fade.dark > 0.95, { timeout: 30000 }).catch(() => {});
+  check((await game(() => window.__game.fade.dark)) > 0.95, 'the picture fades to black when a level is done');
+  await page.waitForFunction(() => window.__game.fade.card > 0.9, { timeout: 15000 }).catch(() => {});
+  check((await game(() => window.__game.fade.card)) > 0.9, 'a title card shows in the dark');
+  check(colorsIn(await shot('title-card')) > 2, 'the card renders');
+  await page.waitForFunction(() => window.__game.fade.dark < 0.02, { timeout: 30000 }).catch(() => {});
+  check((await game(() => window.__game.fade.dark)) < 0.02, 'it brightens again');
   check((await game(() => window.__game.state.level)) === 2, 'level 2 starts after the amalgam exists');
   check(!(await game(() => window.__game.tools.vial.active)), 'the vial is cleared away');
   check(await game(() => window.__game.tools.rod.active), 'the stirring rod appears');
@@ -377,6 +384,15 @@ try {
   check(colorsIn(await shot('cat')) > 40, 'the living cat renders');
   await new Promise((r) => setTimeout(r, 7000));
   check(await game(() => window.__game.state.finale.done), 'the cat reaches the cushion');
+
+  // 13. the start of the game: black with the card of the first experiment, then it brightens
+  await page.goto('http://127.0.0.1:5199/?test&intro', { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__game, { timeout: 15000 });
+  check((await game(() => window.__game.fade.dark)) > 0.95, 'the game starts black');
+  await page.waitForFunction(() => window.__game.fade.card > 0.9, { timeout: 15000 }).catch(() => {});
+  check((await game(() => window.__game.fade.card)) > 0.9, 'with the card of the first experiment');
+  await page.waitForFunction(() => window.__game.fade.dark < 0.02, { timeout: 30000 }).catch(() => {});
+  check((await game(() => window.__game.fade.dark)) < 0.02, 'and then it brightens');
 
   check(errors.length === 0, `no console or page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   console.log(`screenshots in ${outDir}`);

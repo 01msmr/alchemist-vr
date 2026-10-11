@@ -26,6 +26,8 @@ import { createGhostWorld } from './runtime/ghost.js';
 import { createGhostView } from './view/ghost.js';
 import { createShelfView } from './view/shelf.js';
 import { createBookView } from './view/book.js';
+import { createFade } from './view/fade.js';
+import { createTransitionRuntime } from './runtime/transition.js';
 import { createBookWorld } from './runtime/book.js';
 import { createSpares } from './runtime/spares.js';
 import { installTestHook } from './testhook.js';
@@ -96,9 +98,11 @@ ctx.ghostWorld = createGhostWorld(ctx);
 const ghostView = createGhostView(view);
 const shelfView = createShelfView(view, bottleShell);
 const bookView = createBookView(view);
+ctx.transition = createTransitionRuntime(ctx, createFade(view));
 ctx.book = createBookWorld(ctx);
 ctx.spares = createSpares(ctx);
 ctx.runner.reset();
+if (!new URLSearchParams(location.search).has('test') || new URLSearchParams(location.search).has('intro')) ctx.transition.intro(); // the first experiment begins with the card (the smoke test skips it unless asked)
 installTestHook(ctx);
 
 const triggerLog = new URLSearchParams(location.search).has('trigger') ? createTriggerLog() : null; // ?trigger: show the raw trigger values on the panel
@@ -135,8 +139,9 @@ view.renderer.setAnimationLoop(() => {
   ctx.ghostWorld.sense(); // level 3: what the table shows the rules (the salt ring, the gold, the vial)
   step(state, dt);
   ctx.ghostWorld.settle();
-  const next = advanceLevel(state, dt, vial.holder !== null);
-  if (next) ctx.runner.enter(next, before);
+  const next = ctx.transition.active ? null : advanceLevel(state, dt, vial.holder !== null, false); // the level changes in the dark (see runtime/transition.js)
+  if (next) ctx.transition.go(next, before);
+  ctx.transition.update(dt);
 
   if (state.flow > 0 && typeof vial.holder === 'number' && time - lastPourPulse > pourHaptics.every) {
     lastPourPulse = time;

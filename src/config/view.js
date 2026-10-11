@@ -37,5 +37,7 @@ export const VIEW = {
     leafSeconds: 0.7, leafFastSeconds: 0.3, // one page turns in this long (quicker when several are queued)
     sealIcon: 'dragon',
   },
+  // the change between experiments: seconds of darkening, of the title card (with its fade in and out), of brightening; the black sphere around the head, the card's distance and size (m)
+  transition: { out: 1.0, card: 2.8, in: 1.0, cardFade: 0.6, radius: 0.5, distance: 0.9, cardW: 0.8, cardH: 0.4, ink: '#e8d8a8', inkSoft: 'rgba(232,216,168,0.55)' },
   panel: { canvasWidth: 1024, canvasHeight: 320, font: '26px monospace', lineHeight: 44 },
 };

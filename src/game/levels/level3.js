@@ -11,7 +11,9 @@ export const level3 = {
 
   guide: {
     icon: 'ghost', // the picture on the left page
+    motto: 'Ein Geist wartet, und eine Katze, die nicht lebt.', // under the title on the card between the experiments
     title: 'Das dritte Werk',
+    end: { title: 'Das Ende', motto: 'Die Katze lebt, und der Geist hat ein Zuhause gefunden.' },
     steps: [
       'Entzünde die Kerze und streue Kräuter in den Tiegel. Der Rauch zeigt den Geist.',
       'Lege das Gold hin und streue einen geschlossenen Ring aus Salz darum. Der Löffel rieselt, wenn du ihn tief über den Tisch führst.',

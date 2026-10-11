@@ -115,16 +115,21 @@ export function takeNugget(s) {
 
 // A level ends a moment after it is complete (the countdown waits while `held`, e.g. the vial is in a hand).
 // Returns the next level, once, when it is time to move on; null otherwise.
-export function advanceLevel(s, dt, held) {
+export function advanceLevel(s, dt, held, commit = true) {
   const next = LEVELS[s.level];
   if (!next || !levelOf(s).complete(s)) return null;
   if (s.tidyIn === null) s.tidyIn = CFG.TIDY_DELAY;
   if (!held) s.tidyIn -= dt;
   if (s.tidyIn > 0) return null;
+  if (commit) commitLevel(s, next);
+  return next;
+}
+
+// move the game on to `next` (advanceLevel with commit = false leaves that to the caller, e.g. after a fade to black)
+export function commitLevel(s, next) {
   s.level = next.id;
   s.tidyIn = null;
   s.progress = {};
-  return next;
 }
 
 // Advance the world by dt: the match burns, the candle heats the crucible, the level's reactions run.
