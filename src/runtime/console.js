@@ -4,7 +4,8 @@ import { createTapCounter } from '../calibration.js';
 import { controls, hitControl, createCord, cordPosition } from '../game/console.js';
 import { hitBookZone } from '../game/book.js';
 import { createConsoleView } from '../view/console.js';
-import { indexLocal, tipLocal } from './space.js';
+import { indexLocal, tipLocal, palmLocal } from './space.js';
+import { pulse } from '../vr.js';
 
 const C = INPUT.calibration;
 const at = cordPosition();
@@ -18,7 +19,9 @@ export function createConsole(ctx) {
   const cord = createCord(K.cord);
   const look = createConsoleView(view);
   const counters = [0, 1].map(() => createTapCounter({ ...C.tap, count: 1 }));
-  const pinching = [false, false];
+  const palm = new THREE.Vector3();
+  // how far a hand is from the bead: the working end or the hand itself, whichever is nearer (either may reach for it)
+  const reachTo = (hand) => Math.min(tipLocal(view, hand, tip).distanceTo(beadAt()), palmLocal(view, hand, palm).distanceTo(beadAt()));
   const holder = { hand: null, mouse: false }; // who holds the bead
   const tip = new THREE.Vector3();
   const bead = new THREE.Vector3();
@@ -83,6 +86,7 @@ export function createConsole(ctx) {
     },
 
     update(dt) {
+      let near = false; // a hand is in reach of the bead
       ctx.hands.forEach((hand, i) => {
         const tracked = hand.mode === 'tracked' || hand.mode === 'controller'; // a controller taps and pinches with its working end (the hand tool's tip)
         const pinch = tracked && hand.pinchOn;
@@ -93,13 +97,14 @@ export function createConsole(ctx) {
             holder.hand = null;
             if (!holder.mouse) cord.release();
           }
-        } else if (pinch && !pinching[i] && hand.held === null && holder.hand === null && !holder.mouse) {
-          if (tipLocal(view, hand, tip).distanceTo(beadAt()) <= K.cord.grabRadius) {
-            holder.hand = i;
-            cord.grab(tip.y);
-          }
+        } else if (pinch && hand.held === null && holder.hand === null && !holder.mouse && cord.canGrab && reachTo(hand) <= K.cord.grabRadius) {
+          // the trigger is pressed and the bead is in reach: it does not matter which came first
+          holder.hand = i;
+          tipLocal(view, hand, tip);
+          cord.grab(tip.y);
+          pulse(hand, 0.4, 40);
         }
-        pinching[i] = pinch;
+        if (tracked && holder.hand !== i && cord.canGrab && holder.hand === null && reachTo(hand) <= K.cord.grabRadius * 1.3) near = true;
 
         indexLocal(view, hand, tip);
         const over = tracked && hand.held === null && holder.hand !== i && Math.abs(tip.y) <= C.band && hitAny(tip.x, tip.z, K.tapMargin) !== null;
@@ -114,7 +119,7 @@ export function createConsole(ctx) {
         holder.mouse = false;
         ctx.runner.reset();
       }
-      look.update(settings.get(), cord.pulled, cord.progress);
+      look.update(settings.get(), cord.pulled, cord.progress, near || cord.grabbed);
     },
   };
 }

@@ -322,6 +322,18 @@ try {
   await fake(1, { x: beadLocal.x, y: beadLocal.y - 0.2, z: beadLocal.z }, 0, 0);
   await new Promise((r) => setTimeout(r, 400));
   check(!(await game(() => window.__game.state.candleLit)), 'pinching the bead with the controller and pulling the cord restarts');
+  // the trigger already pressed when the hand comes to the bead (it does not have to be pressed at the bead), and a few centimeters off
+  await new Promise((r) => setTimeout(r, 1500)); // the cord is back up
+  await game(() => { window.__game.state.candleLit = true; });
+  await fake(1, { x: beadLocal.x + 0.2, y: beadLocal.y + 0.1, z: beadLocal.z }, 1, 0);
+  await frame();
+  await frame();
+  for (let i = 1; i <= 10; i++) { await fake(1, { x: beadLocal.x + 0.2 - 0.0165 * i, y: beadLocal.y + 0.1 - 0.01 * i, z: beadLocal.z + 0.02 }, 1, 0); await frame(); } // arrives 2 cm off, 3.5 cm away
+  check((await game(() => window.__game.cordPulled)) >= 0, 'the hand arrives at the bead with the trigger down');
+  for (let i = 1; i <= 20; i++) { await fake(1, { x: beadLocal.x + 0.035, y: beadLocal.y - 0.01 * i, z: beadLocal.z + 0.02 }, 1, 0); await frame(); }
+  await new Promise((r) => setTimeout(r, 400));
+  check(!(await game(() => window.__game.state.candleLit)), 'the cord is taken when the hand comes to it with the trigger already pressed, and a few centimeters off');
+  await fake(1, { x: beadLocal.x, y: beadLocal.y - 0.2, z: beadLocal.z }, 0, 0);
   await game(() => { for (const h of window.__game.hands) h.gamepad = null; });
   await new Promise((r) => setTimeout(r, 300));
   await page.keyboard.press('r');

@@ -106,3 +106,19 @@ test('the red part of the cord grows from the top with the progress', () => {
   assert.equal(redSegments(2, 100), 100);
   assert.ok(cordPosition().x > B.minX && cordPosition().x < B.maxX);
 });
+
+test('the cord cannot be grabbed while it is still returning from a restart, and can be again after', () => {
+  const cord = createCord(cfg);
+  assert.equal(cord.canGrab, true);
+  cord.grab(1);
+  cord.drag(1 - cfg.pull);
+  cord.step(0.01);
+  assert.equal(cord.canGrab, false);
+  for (let i = 0; i < 100; i++) cord.step(0.02);
+  assert.equal(cord.canGrab, true);
+});
+
+test('the grab radius is generous enough for a shaky hand and smaller than the distance to the buttons', () => {
+  assert.ok(cfg.grabRadius >= 0.07, 'at least 7 cm');
+  assert.ok(cfg.grabRadius < cfg.beadY, 'and not as big as the way to the table');
+});

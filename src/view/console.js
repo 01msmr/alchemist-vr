@@ -63,7 +63,8 @@ export function createConsoleView(view) {
   let drawnCord = '';
 
   return {
-    update(settings, pulled, progress) {
+    // near: a hand is in reach of the bead or holds it
+    update(settings, pulled, progress, near = false) {
       for (const { button, body, c } of Object.values(buttons)) {
         const chosen = settings[c.row] === c.value;
         button.position.y = chosen ? -K.push.voxels * v : 0;
@@ -74,6 +75,8 @@ export function createConsoleView(view) {
       const count = Math.min(maxSegments, Math.floor((cord.lampY - bottom) / cord.segment));
       const redCount = redSegments(progress, count);
       bead.position.set(at.x, bottom - cord.bead / 2, at.z);
+      bead.material.color.set(near ? K.colors.beadNear : K.colors.bead);
+      bead.scale.setScalar(near ? 1.25 : 1);
       const key = `${count} ${redCount}`;
       if (key === drawnCord) return;
       drawnCord = key;

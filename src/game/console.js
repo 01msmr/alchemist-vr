@@ -44,6 +44,7 @@ export function createCord({ pull, springTime }) {
     get pulled() { return pulled; },
     get progress() { return pulled / pull; },
     get grabbed() { return grabbed; },
+    get canGrab() { return !fired; }, // not while it is still returning from a restart
     grab(y) {
       if (fired) return; // still returning from a restart
       grabbed = true;
