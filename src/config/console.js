@@ -17,7 +17,8 @@ export const CONSOLE = {
     pocketFloor: 0x3b3f45,
     buttonPassive: 0x1f5a2e, // dark green
     buttonActive: 0x57ff7a, // lit
-    icon: '#15171a', // CSS color of the picture
+    icon: '#f3e6c4', // CSS colors of the picture and its dark rim
+    iconRim: '#15171a',
     lamp: 0xffe27a,
     socket: 0x555555,
     cordWhite: 0xeeeeee,

@@ -12,6 +12,17 @@ export const level1 = {
   title: 'Lead and mercury',
 
   // substances the crucible takes from falling drops (everything else is wasted)
+  // the instructions on the paper next to the table (old German, in the player's language)
+  guide: {
+    title: 'Das erste Werk',
+    steps: [
+      'Entzünde ein Streichholz am Reibeisen der Schachtel und halte es an den Docht der Kerze.',
+      'Erhitze das Blei im Tiegel, bis es schmilzt.',
+      'Gieße das Quecksilber aus der Phiole in den Tiegel: ein Maß, nicht mehr und nicht weniger. Der grüne Bogen zeigt es.',
+      'Halte es eine Weile, so wird Amalgam daraus. Wird es zu heiß, verbrennt das Blei.',
+    ],
+  },
+
   accepts: { hg: (c) => c.content === 'lead' && c.temp >= CFG.MELT },
 
   // One row per reaction: when the condition has held for `hold` seconds, apply the outcome.

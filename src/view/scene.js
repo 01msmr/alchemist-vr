@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { toGeometry } from '../voxel-mesh.js';
 import { CONSOLE, LAYOUT, VIEW } from '../config/index.js';
 import { pockets } from '../game/console.js';
+import { oakTexture } from './wood.js';
 import { PROPS } from '../props.js';
 
 // Everything you see that is not a tool or an effect: the renderer, the table, the camera, the world group
@@ -22,7 +23,10 @@ export function createScene() {
   let grid = null;
 
   // table: a top with a hole for every control of the console (its pocket) on a lower slab, darker sides and legs
-  const topMaterial = new THREE.MeshBasicMaterial();
+  const wood = oakTexture(); // the oak top; the shape's coordinates (meters) are its uv: one picture over the whole top
+  wood.repeat.set(1 / table.w, 1 / table.d);
+  wood.offset.set(0.5, 0.25);
+  const topMaterial = new THREE.MeshBasicMaterial({ map: wood });
   const sideMaterial = new THREE.MeshBasicMaterial();
   const floorMaterial = new THREE.MeshBasicMaterial({ color: CONSOLE.colors.pocketFloor });
   const centerZ = table.z - worldOrigin.z; // the table's middle in the world group

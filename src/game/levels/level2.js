@@ -10,6 +10,15 @@ export const level2 = {
   id: 2,
   title: 'Amalgam and sulfur',
 
+  guide: {
+    title: 'Das zweite Werk',
+    steps: [
+      'Nimm mit dem Löffel Schwefel aus der Schale und lass ihn in den Tiegel fallen. Der grüne Bogen zeigt das rechte Maß.',
+      'Halte den Tiegel heiß und rühre mit dem Stab, bis das Metall golden wird.',
+      'Hole das Gold mit der Zange heraus. Falsches Gold täuscht, es ist matt und fahl.',
+    ],
+  },
+
   accepts: { sulfur: (c) => c.content === 'amalgam' },
   // what can be stirred: hot amalgam that has sulfur in it
   stirs: (c) => c.content === 'amalgam' && sulfur(c) > 0 && c.temp >= CFG.MELT,

@@ -9,6 +9,16 @@ export const level3 = {
   id: 3,
   title: 'The ghost and the cat',
 
+  guide: {
+    title: 'Das dritte Werk',
+    steps: [
+      'Entzünde die Kerze und streue Kräuter in den Tiegel. Der Rauch zeigt den Geist.',
+      'Lege das Gold hin und streue einen geschlossenen Ring aus Salz darum. Der Löffel rieselt, wenn du ihn tief über den Tisch führst.',
+      'Stülpe die Phiole umgekehrt über den Ring und halte sie ruhig.',
+      'Lege das Gold der Katze auf die Augen und öffne die Phiole über ihr.',
+    ],
+  },
+
   accepts: { herb: () => true },
   reactions: [],
 

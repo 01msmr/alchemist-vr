@@ -3,10 +3,10 @@ export const VIEW = {
   flameFps: 8, // flame frames per second of the candle
   floorGrid: { size: 4, divisions: 40 },
   table: { thickness: 0.04, leg: 0.06, legInset: 0.08 },
-  // the two looks; voxel models are unlit and keep their colors. `page` and `pageText` are the desktop page's own
+  // the two looks (`tableTop` tints the oak picture, `tableSide` is the plain dark oak of the edges and legs); voxel models are unlit and keep their colors. `page` and `pageText` are the desktop page's own
   themes: {
-    dark: { grid: [0x555555, 0x333333], tableTop: 0xd5d8dc, tableSide: 0x8c8f94, panelBackground: '#101418', panelText: '#dde3ea', page: '#222', pageText: '#ccc' },
-    light: { grid: [0x999999, 0xbbbbbb], tableTop: 0xf1f2f4, tableSide: 0xb4b7bc, panelBackground: '#eef1f4', panelText: '#1c2126', page: '#e6e8eb', pageText: '#222' },
+    dark: { grid: [0x555555, 0x333333], tableTop: 0x9a8e84, tableSide: 0x4f3a24, panelBackground: '#101418', panelText: '#dde3ea', page: '#222', pageText: '#ccc' },
+    light: { grid: [0x999999, 0xbbbbbb], tableTop: 0xffffff, tableSide: 0x7a5a36, panelBackground: '#eef1f4', panelText: '#1c2126', page: '#e6e8eb', pageText: '#222' },
   },
   // the placeholder backgrounds: the ground and the sky per theme (scenery models come later)
   backgrounds: {
@@ -26,6 +26,12 @@ export const VIEW = {
     window: { inner: 0.05, outer: 0.058, color: 0x4caf50 },
     hold: { inner: 0.038, outer: 0.044, good: 0x4caf50, bad: 0xe53935 },
     steps: 90, // resolution of the progress arcs
+  },
+  // the instructions paper: the picture's size in pixels, the fonts and colors of the old paper
+  paper: {
+    width: 768, height: 1004, font: '"UnifrakturCook", serif', titlePx: 66, bodyPx: 40, lineHeight: 1.22, margin: 78,
+    light: '#eadcb6', dark: '#d2bd8c', edge: 'rgba(110,80,40,0.55)', stain: 'rgba(120,85,40,0.10)', ink: '#2a1a0e',
+    lift: 0.0006, // m above the table top
   },
   panel: { canvasWidth: 1024, canvasHeight: 320, font: '26px monospace', lineHeight: 44 },
 };

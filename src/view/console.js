@@ -33,7 +33,7 @@ export function createConsoleView(view) {
     const button = new THREE.Group();
     button.position.set(c.x, 0, c.z);
     button.add(body);
-    const icon = new THREE.Mesh(iconPlane, new THREE.MeshBasicMaterial({ map: iconTexture(c.icon, K.colors.icon), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })); // a picture on the table, behind its button
+    const icon = new THREE.Mesh(iconPlane, new THREE.MeshBasicMaterial({ map: iconTexture(c.icon, K.colors.icon, K.colors.iconRim), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })); // a picture on the table, behind its button
     icon.position.set(c.x, 0.0004, c.iconZ);
     icon.renderOrder = 1;
     group.add(button, icon);
