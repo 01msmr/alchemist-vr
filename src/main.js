@@ -50,6 +50,7 @@ const ctx = {
   view,
   state: createState(),
   hands: [],
+  audio: null, // created below, once the renderer exists (the pieces ask for it when they need a sound)
   hover: new Set(), // the tools a hand could take right now (outlined)
   drops: [], // mercury drops and sulfur grains in flight
   puddles: createPuddles(LAYOUT.tableBounds),
@@ -57,6 +58,7 @@ const ctx = {
   clock: new THREE.Clock(),
   physics: null,
 };
+ctx.audio = createAudio(view.renderer);
 ctx.physics = createPhysics({
   table: LAYOUT.tableBounds,
   floorY: -LAYOUT.table.h,
@@ -109,7 +111,7 @@ ctx.bookView = bookView;
 ctx.transition = createTransitionRuntime(ctx, createFade(view));
 const hints = createHints(ctx, createHintView(view));
 const zonesView = createZonesView(view);
-ctx.hazard = createHazardWorld(ctx, createHazardView(view), bookView, createAudio(view.renderer));
+ctx.hazard = createHazardWorld(ctx, createHazardView(view), bookView, ctx.audio);
 ctx.book = createBookWorld(ctx);
 ctx.spares = createSpares(ctx);
 ctx.runner.reset();
@@ -154,6 +156,7 @@ view.renderer.setAnimationLoop(() => {
   if (next) ctx.transition.go(next, before);
   ctx.transition.update(dt);
 
+  ctx.audio.setPour(state.flow / CFG.POUR_MAX_RATE);
   if (state.flow > 0 && typeof vial.holder === 'number' && time - lastPourPulse > pourHaptics.every) {
     lastPourPulse = time;
     pulse(ctx.hands[vial.holder], pourHaptics.base + (pourHaptics.range * state.flow) / CFG.POUR_MAX_RATE, pourHaptics.ms);

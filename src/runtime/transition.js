@@ -28,6 +28,7 @@ export function createTransitionRuntime(ctx, fade) {
 
     // a level is done (or the perfect preconditions of a level are wanted): fade out, set up `next` in the dark; `preset`: from a clean table, in the perfect state of that level
     go(next, before, { preset = false } = {}) {
+      if (!preset) ctx.audio?.chime(false); // an experiment is done
       pending = { next, before, preset };
       card = { title: next.guide.title, subtitle: next.guide.motto };
       begin();
@@ -61,7 +62,10 @@ export function createTransitionRuntime(ctx, fade) {
         }
         pending = null;
       }
-      if (f.cardStart && card) fade.showCard(card.title, card.subtitle);
+      if (f.cardStart && card) {
+        fade.showCard(card.title, card.subtitle);
+        if (ended && !pending) ctx.audio?.chime(true); // the card of the very end
+      }
       fade.update(f);
     },
   };

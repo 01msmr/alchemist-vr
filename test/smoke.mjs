@@ -17,7 +17,7 @@ const server = await createServer({ root, configFile: false, logLevel: 'error', 
 await server.listen();
 const browser = await puppeteer.launch({
   headless: true,
-  args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--window-size=1280,800'],
+  args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--window-size=1280,800', '--autoplay-policy=no-user-gesture-required'],
 });
 
 try {
@@ -530,6 +530,16 @@ try {
   await up2(0.5, -0.25);
   await down2(0.5, -0.25);
   check((await game(() => window.__game.fingers)).length === 0, 'going down far from every object gets none');
+
+  // 15. the sounds run without errors (match, flame, pour, chimes, crackle, hiss); whether they sound right is for the headset
+  await page.mouse.click(300, 300); // a click starts the sound, as for a player
+  const soundReady = await game(() => {
+    const a = window.__game.audio;
+    a.strike(); a.flame(); a.setPour(1); a.chime(false); a.chime(true); a.crackle(0.8); a.hiss(); a.setPour(0.4); a.setPour(0);
+    return a.ready;
+  });
+  console.log(`     (the sound context is ${soundReady ? 'running' : 'suspended: no audio device here'})`);
+  await new Promise((r) => setTimeout(r, 500));
 
   check(errors.length === 0, `no console or page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   console.log(`screenshots in ${outDir}`);

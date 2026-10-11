@@ -27,6 +27,7 @@ export function installTestHook(ctx) {
       ctx.state.level = n;
       ctx.runner.enter(LEVELS[n - 1], before);
     },
+    get audio() { return ctx.audio; },
     get fingers() { return ctx.calibration.fingers; },
     get calibrationHelp() { return ctx.calibration.help; },
     get hover() { return [...ctx.hover]; },

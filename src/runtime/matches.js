@@ -101,6 +101,7 @@ export function createMatches(ctx) {
         const dist = Math.hypot(head.x - prevHead.x, head.z - prevHead.z);
         const onBox = Math.abs(head.x - matchbox.x) <= matchbox.halfX && Math.abs(head.z - matchbox.z) <= matchbox.halfZ && head.y >= STRIKER.yMin && head.y <= STRIKER.yMax;
         const result = strokeMatch(state, onBox, dist / dt, dist);
+        if (result === 'lit') ctx.audio?.strike();
         if (hand && result === 'lit') pulse(hand, H.strike.strength, H.strike.ms);
         else if (hand && result === 'broken') pulse(hand, H.snap.strength, H.snap.ms);
       }
@@ -108,6 +109,7 @@ export function createMatches(ctx) {
       prevHeadValid = true;
       if (!state.candleLit && state.match.lit > 0 && head.distanceTo(wickPoint) <= reach.light) {
         lightCandle(state);
+        ctx.audio?.flame();
         if (hand) pulse(hand, H.candle.strength, H.candle.ms);
       }
     },

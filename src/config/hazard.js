@@ -11,5 +11,7 @@ export const HAZARD = {
   icon: { size: 0.075, height: 0.14, bob: 0.01, warn: '#ffb04a', stir: '#ffe08a', fail: '#f2ede0', rim: '#1a0c06' },
   hint: { size: 0.06, bob: 0.008, color: '#f7f1dc', rim: '#1a0c06', fade: 3 }, // the symbol for the next step (fade: how fast it appears and goes, 1/s)
   haptic: { gapSlow: 0.5, gapFast: 0.12, strengthLow: 0.15, strengthHigh: 0.7, ms: 30, failTicks: 3, failGap: 0.07, failStrength: 0.4 }, // seconds between pulses, then their strength
+  // more sounds (all made in the browser, no files): the match scratching, the flame, the pour, the chime of success
+  sounds: { strikeGain: 0.2, flameGain: 0.16, pourGain: 0.14, pourFreq: 1100, chimeGain: 0.16, chimeNotes: [523.25, 659.25, 783.99, 1046.5], chimeGap: 0.16 },
   sound: { crackleMin: 3, crackleMax: 30, gain: 0.16, hissSeconds: 1.2, hissGain: 0.2 }, // crackles per second; a hiss when it fails (no thud)
 };
