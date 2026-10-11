@@ -58,12 +58,13 @@ export function createHandInput(ctx) {
     pulse(hand, H.grab.strength, H.grab.ms);
   }
 
-  function tryGrabTool(hand, mode) {
+  // `directOnly`: only the tools that need no tongs (the stirring rod: held by the controller itself)
+  function tryGrabTool(hand, mode, directOnly = false) {
     const point = mode === 'fist' ? palmLocal(view, hand, palm) : tipLocal(view, hand, tip);
     let best = null;
     let bestD = Infinity;
     for (const t of ctx.tools.list) {
-      if (!t.active || t.holder !== null) continue;
+      if (!t.active || t.holder !== null || (directOnly && !t.spec.direct)) continue;
       const a = t.pos.clone().addScaledVector(t.up, -t.spec.axisHalf);
       const b = t.pos.clone().addScaledVector(t.up, t.spec.axisHalf);
       const d = distanceToSegment(point, a, b);
@@ -150,10 +151,11 @@ export function createHandInput(ctx) {
       for (const hand of ctx.hands) {
         const { pinch, squeeze } = analog(hand);
         showGrip(hand, pinch);
-        if (hand.held === null && (hand.mode === 'tracked' || (hand.mode === 'controller' && canDo(hand.handTool, 'tool')))) { // a hand that can take a tool: outline the one in reach
+        if (hand.held === null && (hand.mode === 'tracked' || hand.mode === 'controller')) { // a hand that can take a tool: outline the one in reach (without tongs only the rod)
+          const all = hand.mode === 'tracked' || canDo(hand.handTool, 'tool');
           tipLocal(view, hand, tmp);
           for (const t of ctx.tools.list) {
-            if (!t.active || t.holder !== null) continue;
+            if (!t.active || t.holder !== null || (!all && !t.spec.direct)) continue;
             const a = t.pos.clone().addScaledVector(t.up, -t.spec.axisHalf);
             const b = t.pos.clone().addScaledVector(t.up, t.spec.axisHalf);
             if (distanceToSegment(tmp, a, b) <= t.spec.grabRadius) ctx.hover.add(t.id);
@@ -183,8 +185,8 @@ export function createHandInput(ctx) {
           if (!hand.held) {
             if (!controller) {
               if (!tryGrabTool(hand, 'pinch')) tryPinchAction(hand);
-            } else if (hand.handTool && !(canDo(hand.handTool, 'tool') && tryGrabTool(hand, 'pinch'))) {
-              tryPinchAction(hand, hand.handTool); // the trigger: the tongs hold, the spoon scoops
+            } else if (!(canDo(hand.handTool, 'tool') && tryGrabTool(hand, 'pinch')) && !tryGrabTool(hand, 'pinch', true) && hand.handTool) {
+              tryPinchAction(hand, hand.handTool); // the trigger: the tongs hold, the spoon scoops; the rod is taken by the hand itself (any hand)
             }
           }
         } else if (hand.pinchOn && pinch < A.pinchOff) {

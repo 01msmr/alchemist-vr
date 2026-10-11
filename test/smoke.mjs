@@ -305,6 +305,23 @@ try {
   await fake(0, { x: 0.1, y: 0.1, z: 0.1 }, 1, 0);
   await new Promise((r) => setTimeout(r, 300));
   check((await game(() => window.__game.hands[0].held)) === null, 'the spoon does not pick up the vial');
+  // the stirring rod needs no tongs: any hand takes it, also one that carries the spoon
+  await fake(0, { x: 0.1, y: 0.1, z: 0.1 }, 0, 0);
+  await frame();
+  await frame();
+  await game(() => window.__game.goToLevel(2));
+  await new Promise((r) => setTimeout(r, 800));
+  const rodAt = await game(() => { const p = window.__game.tool('rod').pos; return { x: p.x, y: p.y, z: p.z }; });
+  await fake(0, rodAt);
+  await frame();
+  await frame();
+  check((await game(() => window.__game.hover)).includes('rod'), 'the rod is outlined for a hand with the spoon');
+  await fake(0, rodAt, 1, 0);
+  await frame();
+  await frame();
+  check((await game(() => window.__game.tool('rod').holder)) === 0, 'the hand with the spoon takes the rod directly, without tongs');
+  await fake(0, rodAt, 0, 0);
+  await frame();
   // a finger over a protected area: the area is drawn and the missing distance is shown at the finger; an outline for a tool in reach
   const matchbox = await game(() => { const c = window.__game.zones.find((z) => z.r !== undefined && Math.abs(z.x + 0.18) < 0.01); return c ? { x: c.x, z: c.z, r: c.r } : null; });
   check(matchbox !== null, 'the matchbox has a protected area');
