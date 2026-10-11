@@ -23,6 +23,8 @@ npm run smoke    # runs the real game headless in Chromium (mouse, simulated con
   the edge. The lowest tap sets the height, the two places the front edge. It is remembered. White areas show where a tap does not count.
 - **Settings** on the table's right edge (tap): look, background, difficulty. The cord of the lamp: pull to start over, push up for the perfect
   preconditions of the level whose page is open in the book (to try a level without the ones before).
+- **Sound:** synthesized in the browser, starts after the first click or the VR session: warning crackle and hiss on a failure, match scratch,
+  candle whoosh, the pour, a chime for a finished experiment (a longer one at the end). Not yet tuned on the headset (`HAZARD.sounds`).
 - **Desktop:** drag to move things, Shift + drag tilts the vial, Space + drag spills salt, arrow keys turn the book, R starts over.
 
 ## Code

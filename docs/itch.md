@@ -55,7 +55,7 @@ No headset? It also runs on the desktop with the mouse.
 ### Notes
 
 - Made in a few days for the jam. The feel of the controllers (grip, tap thresholds, reach) and the difficulty numbers were tuned in simulation and are still being adjusted on the headset.
-- The sound is minimal: crackles and a hiss when an experiment goes wrong.
+- Sound is synthesized in the browser (no files): a crackle and hiss when an experiment goes wrong, the match scratch and candle whoosh, the pour, and a chime when an experiment is done (a longer one at the end). Not yet tuned on the headset.
 
 ### Credits
 
