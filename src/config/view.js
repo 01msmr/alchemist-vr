@@ -15,7 +15,7 @@ export const VIEW = {
     stable: { dark: { ground: 0x3b3a22, sky: 0x1f2418 }, light: { ground: 0xd2c27a, sky: 0xbfd6a6 } },
   },
   groundSize: 30, // m, the big plane under the grid
-  camera: { fov: 50, offset: { x: 0.1, y: 0.35, z: 0.5 }, target: { x: 0, y: 0.08, z: 0.03 } }, // desktop view, from the world origin
+  camera: { fov: 50, offset: { x: 0.1, y: 0.5, z: 0.65 }, target: { x: 0, y: 0.1, z: -0.12 } }, // desktop view, from the world origin
   glass: { opacity: 0.38 }, // the vial's see-through part
   ghost: { opacity: 0.6, smokeColor: 0x9aa0a6, smokeCubes: 36, smokeHeight: 0.25 },
   drops: { hg: 0xd7e1eb, sulfur: 0xebd73c, herb: 0x46a03c, salt: 0xf5f5fa, grain: 0.006 },

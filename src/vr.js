@@ -44,7 +44,7 @@ export function setupVR(renderer, scene) {
     const hand = {
       index, handedness: index === 0 ? 'left' : 'right', grip, trackedHand, gamepad: null,
       mode: 'none', pinch: 0, squeeze: 0,
-      handTool: 'tongs', tipZ: TIP_Z, // the hand tool a controller carries and how far its working end is in front of the grip
+      handTool: null, tipZ: TIP_Z, // the hand tool a controller carries and how far its working end is in front of the grip
       tipPoint: new THREE.Vector3(), // where the fingertips pinch, in the scene
       indexPoint: new THREE.Vector3(), // the index fingertip (a controller's tip), in the scene: it taps the table
       graspPoint: new THREE.Vector3(), // where a fist closes, in the scene

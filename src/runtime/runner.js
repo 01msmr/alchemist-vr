@@ -1,3 +1,4 @@
+import { LAYOUT } from '../config/index.js';
 import { createState, levelOf } from '../game/sim.js';
 import { PROPS } from '../props.js';
 import { LEVELS } from '../game/levels/index.js';
@@ -17,6 +18,8 @@ export function createRunner(ctx) {
     // (only the vial and the rod have a rest place; the gold nugget is made by the player)
 
     physics.removeExtras();
+    const shelf = LAYOUT.shelf;
+    physics.addStaticBox(0, shelf.y - shelf.thickness / 2, shelf.z, LAYOUT.tableBounds.maxX - 0.02, shelf.thickness / 2, shelf.depth / 2); // the shelf board the main tools stand on
     for (const [name, mesh] of Object.entries(view.props)) {
       mesh.visible = level.scene.props.includes(name);
       if (mesh.visible) {

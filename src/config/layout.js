@@ -5,6 +5,8 @@
 const table = { w: 1.6, d: 0.8, h: 0.85, heightRange: [0.4, 1.4], z: -0.65 };
 const worldOrigin = { x: 0, y: table.h, z: -0.45 }; // in the scene
 
+const backEdge = table.z - worldOrigin.z - table.d / 2; // the table's far edge (world-local z)
+
 export const LAYOUT = {
   voxel: 0.0075, // 1 voxel = 0.75 cm (was 1 cm: more detail at the same size; the models in assets.js are described in cm)
   table,
@@ -31,10 +33,20 @@ export const LAYOUT = {
   herbs: { x: -0.32, y: 0, z: 0.1, half: 0.035, height: 0.03, centerY: 0.02 },
   salt: { x: -0.42, y: 0, z: 0.1, half: 0.035, height: 0.03, centerY: 0.02 },
   cat: { x: -0.25, z: -0.28, eyeY: 0.03 }, // where the cat lies; its eyes are at this height
-  cushion: { x: -0.55, z: -0.45, half: 0.05 },
+  cushion: { x: -0.55, z: -0.36, half: 0.05 },
   // where the tools start: x, z on the table; `lying` = on its side with its axis along x, else standing up
-  rest: { vial: { x: 0.22, z: 0.08, lying: false }, rod: { x: 0.3, z: -0.06, lying: true } },
+  // (y = where it stands: the shelf's top; the main tools start in the left half of the shelf)
+  rest: { vial: { x: -0.425, y: 0.12, z: backEdge + 0.07, lying: false }, rod: { x: -0.2, y: 0.12, z: backEdge + 0.07, lying: true } },
+  // the shelf along the far edge: main tools in the left half, hand tools in the right; the hand tools are `slots`
+  // (x = the middle of the compartment, `reach` = how close a controller's working end must be to put a tool back or take it)
+  shelf: {
+    y: 0.12, z: backEdge + 0.07, depth: 0.1, thickness: 0.012, post: 0.02,
+    dividers: [-0.7, -0.55, -0.3, 0, 0.31, 0.69], // x of the thin walls between compartments (0 = between main and hand tools)
+    slots: [{ id: 'tongs', x: 0.17 }, { id: 'spoon', x: 0.5 }],
+    spare: { x: -0.625 }, // the compartment of the spare vial (easy only)
+    reach: 0.12,
+  },
 
   // status panel behind the table (the only readable text in the headset)
-  statusPanel: { y: 0.3, fromBack: 0.1, width: 0.64, height: 0.2 },
+  statusPanel: { y: 0.45, fromBack: 0.1, width: 0.64, height: 0.2 },
 };

@@ -38,6 +38,7 @@ export function createHandToolRig() {
   const tools = { tongs, spoon };
   let current = 'tongs';
 
+  // `id` is a hand tool, or null for an empty hand
   function setTool(id) {
     current = id;
     for (const [name, g] of Object.entries(tools)) g.visible = name === id;
@@ -53,7 +54,7 @@ export function createHandToolRig() {
         stretch(arms[i], base[i], tip[i]);
         pads[i].position.copy(tip[i]);
       }
-    } else {
+    } else if (current === 'spoon') {
       load.visible = loaded;
     }
   }

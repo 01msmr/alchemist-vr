@@ -161,7 +161,7 @@ export function createHandInput(ctx) {
           if (!hand.held) {
             if (!controller) {
               if (!tryGrabTool(hand, 'pinch')) tryPinchAction(hand);
-            } else if (!(canDo(hand.handTool, 'tool') && tryGrabTool(hand, 'pinch'))) {
+            } else if (hand.handTool && !(canDo(hand.handTool, 'tool') && tryGrabTool(hand, 'pinch'))) {
               tryPinchAction(hand, hand.handTool); // the trigger: the tongs hold, the spoon scoops
             }
           }

@@ -62,6 +62,7 @@ export const CFG = {
 
   BREAK_SPEED_FACTOR: 1, // difficulty: the vial's break speed (TOOLS.vial.breakSpeed) is multiplied by this
   SPARE_VIALS: 0, // difficulty: replacement vials on the shelf
+  SPARE_DELAY: 1.5, // s after a vial broke until the spare stands in its place
 
   // level 3: herbs on the flame make smoke, smoke shows the ghost, a closed salt ring with gold in it holds it, the
   // inverted vial over the ring catches it; then the cat: gold eyes, the open vial, the cat wakes and runs to the cushion

@@ -24,6 +24,7 @@ export const level3 = {
   },
 
   // the vial starts empty: it is for the ghost
+  vialFill: 0, // a spare vial for this level is empty as well
   onEnter(s) {
     s.vial.fill = 0;
     s.vialBroken = false;

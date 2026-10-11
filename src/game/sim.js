@@ -12,6 +12,7 @@ export function createState() {
     vial: { fill: CFG.VIAL_CAPACITY },
     flow: 0, // current pour rate, for the stream visual
     vialBroken: false,
+    spareVials: rules().SPARE_VIALS, // replacement vials on the shelf (the difficulty decides)
     crucible: { content: 'lead', temp: 0, amounts: {}, quality: null, stir: 0 }, // amounts: substance -> doses in it
     progress: {}, // reaction id -> seconds the condition has held
     wasted: 0,

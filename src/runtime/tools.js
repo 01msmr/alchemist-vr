@@ -140,7 +140,7 @@ export function createTools(ctx) {
   function spawnAtRest(id) {
     const t = tools[id];
     const r = LAYOUT.rest[id];
-    const pos = new THREE.Vector3(r.x, r.lying ? t.spec.half.x : t.spec.half.y, r.z);
+    const pos = new THREE.Vector3(r.x, (r.y ?? 0) + (r.lying ? t.spec.half.x : t.spec.half.y), r.z);
     spawn(t, pos, r.lying ? new THREE.Quaternion().setFromAxisAngle(Z_AXIS, Math.PI / 2) : new THREE.Quaternion());
   }
 

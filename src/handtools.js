@@ -1,9 +1,4 @@
 import { HANDTOOLS } from './config/index.js';
 
-// What a hand tool may do (pure).
+// What a hand tool may do (pure). A hand with no tool (null) can do nothing.
 export const canDo = (tool, action) => HANDTOOLS[tool]?.can.includes(action) ?? false;
-
-// the next hand tool in the order, after `current` (the first one if `current` is unknown)
-export function nextTool(current, order = HANDTOOLS.order) {
-  return order[(order.indexOf(current) + 1) % order.length];
-}

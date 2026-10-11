@@ -24,6 +24,8 @@ import { createConsole } from './runtime/console.js';
 import { createHandTools } from './runtime/handtools.js';
 import { createGhostWorld } from './runtime/ghost.js';
 import { createGhostView } from './view/ghost.js';
+import { createShelfView } from './view/shelf.js';
+import { createSpares } from './runtime/spares.js';
 import { installTestHook } from './testhook.js';
 import { createTriggerLog } from './triggertest.js';
 
@@ -90,6 +92,8 @@ for (const hand of ctx.hands) {
 ctx.handTools = createHandTools(ctx);
 ctx.ghostWorld = createGhostWorld(ctx);
 const ghostView = createGhostView(view);
+const shelfView = createShelfView(view, bottleShell);
+ctx.spares = createSpares(ctx);
 ctx.runner.reset();
 installTestHook(ctx);
 
@@ -143,6 +147,8 @@ view.renderer.setAnimationLoop(() => {
   refresh('crucible', JSON.stringify(contents), meshes.crucible, () => crucibleModel(contents));
   tools.refreshLook(state);
   ghostView.update(state, time, vial.pos);
+  ctx.spares.update(dt);
+  shelfView.update(ctx.handTools.inShelf, state.spareVials);
   const level = levelOf(state);
   effects.updateGauge(state, level);
   effects.updateDrops(ctx.drops);

@@ -193,6 +193,14 @@ try {
 
   // 12. level 3: herbs on the flame, smoke, the ghost, a salt ring around the gold, the inverted vial catches it, the
   // cat gets gold eyes and the open vial, wakes and runs to the cushion
+  // on easy a broken vial is replaced from the shelf, once
+  await game(() => window.__game.setSetting('difficulty', 'easy'));
+  await new Promise((r) => setTimeout(r, 300));
+  check((await game(() => window.__game.state.spareVials)) === 1, 'easy has a spare vial on the shelf');
+  await game(() => window.__game.breakVial());
+  await page.waitForFunction(() => window.__game.tool('vial').active, { timeout: 10000 }).catch(() => {}); // game time runs slower than the clock on a slow machine
+  check((await game(() => window.__game.tool('vial').active)) && (await game(() => window.__game.state.spareVials)) === 0 && !(await game(() => window.__game.state.vialBroken)), 'the spare vial takes the place of the broken one');
+  check(colorsIn(await shot('shelf')) > 40, 'the shelf renders');
   await game(() => window.__game.setSetting('difficulty', 'normal'));
   await new Promise((r) => setTimeout(r, 300));
   await game(() => {
