@@ -27,7 +27,7 @@ export function installTestHook(ctx) {
     get worldY() { return ctx.view.world.position.y; },
     get floorY() { return ctx.physics.world.bodies.find((b) => b.shapes[0]?.type === 2 /* plane */)?.position.y; },
     screenOf(name) {
-      const where = ['lever', 'lab', 'bench', 'stable', 'bead'].includes(name) ? ctx.console.centerOf(name) : {
+      const where = (name === 'bead' || name.includes(':')) ? ctx.console.centerOf(name) : {
         box: ctx.matches.boxCenter,
         crucible: v(LAYOUT.crucible),
         stand: v(LAYOUT.wick),

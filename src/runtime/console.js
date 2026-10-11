@@ -29,10 +29,7 @@ export function createConsole(ctx) {
   const cordPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -at.z);
   const beadAt = () => bead.set(at.x, K.cord.beadY - cord.pulled, at.z);
 
-  function press(control) {
-    if (control.kind === 'lever') settings.set('theme', settings.get().theme === 'dark' ? 'light' : 'dark');
-    else settings.set('background', control.value);
-  }
+  const press = (control) => settings.set(control.row, control.value);
 
   const rayFrom = (e) => {
     pointer.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);

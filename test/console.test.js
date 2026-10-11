@@ -7,11 +7,32 @@ const B = LAYOUT.tableBounds;
 
 test('a point on a control hits it, between controls and outside hit nothing', () => {
   for (const c of controls()) assert.equal(hitControl(c.x, c.z)?.id, c.id);
-  const [a, b] = controls().filter((c) => c.kind === 'button');
+  const [a, b] = controls().filter((c) => c.row === 'background');
   assert.equal(hitControl((a.x + b.x) / 2, a.z), null, 'in the 2 cm gap');
   assert.equal(hitControl(0, 0), null);
   assert.equal(hitControl(a.x + a.halfX + 0.005, a.z)?.id, undefined);
   assert.equal(hitControl(a.x + a.halfX + 0.005, a.z, 0.01)?.id, a.id, 'a margin widens the footprint');
+});
+
+test('every option of every row is a button, side by side with the first on the left, rows apart', () => {
+  const list = controls();
+  assert.deepEqual(list.map((c) => c.id), ['theme:dark', 'theme:light', 'background:lab', 'background:bench', 'background:stable', 'difficulty:easy', 'difficulty:normal', 'difficulty:hard']);
+  for (const row of ['theme', 'background', 'difficulty']) {
+    const cells = list.filter((c) => c.row === row);
+    assert.ok(cells.every((c) => c.z === cells[0].z), 'one z per row');
+    assert.ok(cells.every((c, i) => i === 0 || c.x > cells[i - 1].x), 'the first option is on the left');
+  }
+  assert.equal(new Set(list.map((c) => c.z)).size, 3);
+});
+
+test('icons lie behind their buttons and do not reach the next row\'s buttons', () => {
+  const half = (CONSOLE.buttons.iconVoxels * LAYOUT.voxel) / 2;
+  for (const c of controls()) {
+    assert.ok(c.iconZ < c.z);
+    for (const other of controls().filter((o) => o.z !== c.z)) {
+      assert.ok(Math.abs(c.x - other.x) >= half + other.halfX || c.iconZ + half <= other.z - other.halfZ || c.iconZ - half >= other.z + other.halfZ, `${c.id} icon / ${other.id}`);
+    }
+  }
 });
 
 test('controls stay on the table and do not overlap', () => {

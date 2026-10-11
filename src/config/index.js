@@ -5,7 +5,7 @@
 //   physics.js  gravity, grip forces, contact                                  (PHYSICS)
 //   tools.js    the loose tools: size, mass, grab radius, breaking speed       (TOOLS)
 //   view.js     colors, ring and effect sizes, the glass, the status panel     (VIEW)
-//   console.js  the settings console: lever, buttons, pull cord               (CONSOLE)
+//   console.js  the settings console: tap buttons, pull cord               (CONSOLE)
 // Colors of the voxel models are the shared palette in ../palette.js.
 import { CFG as game } from './game.js';
 import { LAYOUT as layout } from './layout.js';

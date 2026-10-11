@@ -147,27 +147,31 @@ try {
   check(colorsIn(await shot('shards')) > 40, 'the pieces render');
   check(!(await game(() => window.__game.tools.vial.active)), 'the vial is gone');
 
-  // 11. the settings console on the table's right edge: lever, buttons, pull cord; the choices survive a reload
+  // 11. the settings console on the table's right edge: tap buttons and the pull cord; the choices survive a reload
   await game(() => {
     const g = window.__game;
     g.setTableEdge({ x: 0, z: -0.45, yaw: 0 });
     const o = g.view.world.position; // look at the right edge of the table from farther away
-    g.view.controls.target.set(o.x + 0.8, o.y + 0.25, o.z + 0.05);
-    g.view.camera.position.set(o.x + 0.8, o.y + 0.5, o.z + 1.4);
+    g.view.controls.target.set(o.x + 0.6, o.y + 0.25, o.z + 0.0);
+    g.view.camera.position.set(o.x + 0.6, o.y + 0.55, o.z + 1.0);
     g.view.controls.update();
   });
   await page.keyboard.press('r');
   await new Promise((r) => setTimeout(r, 500));
   check((await game(() => window.__game.settings.theme)) === 'dark', 'the console starts dark');
-  const lever = await at('lever');
-  await page.mouse.click(lever.x, lever.y);
-  check((await game(() => window.__game.settings.theme)) === 'light', 'a click on the lever switches to the light look');
-  await page.mouse.click(lever.x, lever.y);
-  await page.mouse.click(lever.x, lever.y);
-  check((await game(() => window.__game.settings.theme)) === 'light', 'the lever flips on every click');
-  const bench = await at('bench');
+  const light = await at('theme:light');
+  await page.mouse.click(light.x, light.y);
+  check((await game(() => window.__game.settings.theme)) === 'light', 'a click on the sun button switches to the light look');
+  const dark = await at('theme:dark');
+  await page.mouse.click(dark.x, dark.y);
+  check((await game(() => window.__game.settings.theme)) === 'dark', 'a click on the moon button switches back');
+  await page.mouse.click(light.x, light.y);
+  const bench = await at('background:bench');
   await page.mouse.click(bench.x, bench.y);
   check((await game(() => window.__game.settings.background)) === 'bench', 'a click on a button chooses that background');
+  const hard = await at('difficulty:hard');
+  await page.mouse.click(hard.x, hard.y);
+  check((await game(() => window.__game.settings.difficulty)) === 'hard', 'a click on a button chooses the difficulty');
   check(colorsIn(await shot('console-light')) > 40, 'the console renders');
   await game(() => { window.__game.state.candleLit = true; });
   const bead = await at('bead');
@@ -185,7 +189,7 @@ try {
   await page.reload({ waitUntil: 'load' });
   await page.waitForFunction(() => window.__game, { timeout: 15000 });
   const kept = await game(() => window.__game.settings);
-  check(kept.theme === 'light' && kept.background === 'bench', `the choices are remembered after a reload (${JSON.stringify(kept)})`);
+  check(kept.theme === 'light' && kept.background === 'bench' && kept.difficulty === 'hard', `the choices are remembered after a reload (${JSON.stringify(kept)})`);
 
   check(errors.length === 0, `no console or page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   console.log(`screenshots in ${outDir}`);

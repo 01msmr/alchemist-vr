@@ -3,16 +3,24 @@ import { CONSOLE as K, LAYOUT } from '../config/index.js';
 // The settings console, pure: where the controls are, which one a point is over, the pockets in the table, the cord.
 const { maxX } = LAYOUT.tableBounds;
 
-// every control: { id, kind: 'lever' | 'button', value (a background name for a button), x, z, halfX, halfZ }
+// every button: { id: 'row:value', row (the setting), value, icon, x, z, halfX, halfZ, iconZ }; per row the first option is on the left
 export function controls() {
-  const { lever, buttons } = K;
-  return [
-    { id: 'lever', kind: 'lever', x: maxX - lever.inset, z: lever.z, halfX: lever.w / 2, halfZ: lever.d / 2 },
-    ...buttons.names.map((name, i) => ({ id: name, kind: 'button', value: name, x: maxX - buttons.inset - buttons.pitch * i, z: buttons.z, halfX: buttons.size / 2, halfZ: buttons.size / 2 })),
-  ];
+  const { buttons, rows } = K;
+  const half = (buttons.sizeVoxels * LAYOUT.voxel) / 2;
+  return rows.flatMap((row) => row.options.map((option, i) => ({
+    id: `${row.key}:${option.value}`,
+    row: row.key,
+    value: option.value,
+    icon: option.icon,
+    x: maxX - buttons.inset - buttons.pitch * (row.options.length - 1 - i),
+    z: row.z,
+    halfX: half,
+    halfZ: half,
+    iconZ: row.z - buttons.iconGap,
+  })));
 }
 
-// the control a point (x, z) lies over, `margin` m outside its edge still counts; null when none
+// the button a point (x, z) lies over, `margin` m outside its edge still counts; null when none
 export function hitControl(x, z, margin = 0) {
   return controls().find((c) => Math.abs(x - c.x) <= c.halfX + margin && Math.abs(z - c.z) <= c.halfZ + margin) ?? null;
 }

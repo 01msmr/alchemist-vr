@@ -2,7 +2,7 @@
 // front of the player (who stands at the XR origin, facing -z); y is up.
 // 2 x 1 m, 0.85 m high until the player sets the real table's height (heightRange = plausible heights);
 // z = center in the scene (not world-local)
-const table = { w: 2, d: 1, h: 0.85, heightRange: [0.4, 1.4], z: -0.65 };
+const table = { w: 1.6, d: 0.8, h: 0.85, heightRange: [0.4, 1.4], z: -0.65 };
 const worldOrigin = { x: 0, y: table.h, z: -0.45 }; // in the scene
 
 export const LAYOUT = {
