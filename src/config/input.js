@@ -76,6 +76,11 @@ export const INPUT = {
   calibration: {
     tap: { count: 3, drop: 0.02, lift: 0.015, maxGap: 0.75, tolerance: 0.05 }, // m, s: a tap drops 2 cm then lifts 1.5 cm; taps at most 0.75 s apart and within 5 cm height of each other (a finger may slip over the rim)
     band: 0.25, // m above or below the current virtual table top where a touch counts
+    // The protected areas are drawn only when a finger/tool end taps too close to an object: before the real table is known
+    // (the virtual one may be anywhere) when the finger has gone down `dip` m (the peak falls off at `fall` m/s); once the table is set when
+    // it is on it (within `height` m) and within `edge` m of the front edge. They stay `seconds` after.
+    // Only from the 2nd try at about the same place (within `sameSpot` m, within `within` s of the last one).
+    help: { dip: 0.01, fall: 0.08, height: 0.05, edge: 0.15, seconds: 2, sameSpot: 0.06, within: 10 },
     keepAway: 0.04, // m: not within this of anything you could pick up (a missed grab is not a calibration); the protected areas are drawn white
     fingerThickness: 0.01, // m: the fingertip joint is this far above the surface it touches
     storageKey: 'alchemist.tableHeight',

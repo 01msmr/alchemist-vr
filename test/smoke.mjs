@@ -363,12 +363,25 @@ try {
   // a finger over a protected area: the area is drawn and the missing distance is shown at the finger; an outline for a tool in reach
   const matchbox = await game(() => { const c = window.__game.zones.find((z) => z.r !== undefined && Math.abs(z.x + 0.18) < 0.01); return c ? { x: c.x, z: c.z, r: c.r } : null; });
   check(matchbox !== null, 'the matchbox has a protected area');
-  await fake(1, { x: matchbox.x + matchbox.r * 0.5, y: 0.01, z: matchbox.z });
-  await frame();
-  await frame();
+  // the table is set (remembered height and edge): a finger on the table at its front edge, too close to an object, gets the help
+  const down = async (x, z) => { for (const y of [0.12, 0.09, 0.06, 0.03, 0.01]) { await fake(1, { x, y, z }); await frame(); } await frame(); };
+  const up = async (x, z) => { for (const y of [0.04, 0.08, 0.12, 0.16]) { await fake(1, { x, y, z }); await frame(); } await frame(); await frame(); };
+  const at1 = { x: matchbox.x + matchbox.r * 0.5, z: matchbox.z };
+  await down(at1.x, at1.z);
+  check((await game(() => window.__game.fingers)).length === 0 && !(await game(() => window.__game.calibrationHelp)), 'the first try too close to an object shows nothing yet');
+  await up(at1.x, at1.z);
+  await down(at1.x + 0.01, at1.z); // the second try, at about the same place
   const finger = await game(() => window.__game.fingers[0]);
-  check(finger && finger.missing > 0.005 && finger.missing < matchbox.r , `a finger over the area shows how far it still has to go (${finger ? (finger.missing * 100).toFixed(1) : '-'} cm)`);
+  check(finger && finger.missing > 0.005 && finger.missing < matchbox.r, `a finger over the area shows how far it still has to go (${finger ? (finger.missing * 100).toFixed(1) : '-'} cm)`);
   check(await game(() => window.__game.calibrationHelp), 'the protected areas are drawn');
+  await fake(1, { x: 0.04, y: 0.01, z: 0 }); // also over a protected area (the crucible), but far from the front edge
+  await frame();
+  await frame();
+  check((await game(() => window.__game.fingers)).length === 0, 'away from the table edge there is no help');
+  await fake(1, { x: matchbox.x + matchbox.r * 0.5, y: 0.2, z: matchbox.z }); // at the edge but high above the table
+  await frame();
+  await frame();
+  check((await game(() => window.__game.fingers)).length === 0, 'a finger high above the table gets no help either');
 
   // the console with a controller: tap a button with the tongs' tip; pinch the bead and pull the cord
   const buttonAt = await game(() => { const c = window.__game.consoleCenter('difficulty:easy'); return { x: c.x, y: 0, z: c.z }; });
@@ -496,6 +509,27 @@ try {
   check((await game(() => window.__game.fade.card)) > 0.9, 'with the card of the first experiment');
   await page.waitForFunction(() => window.__game.fade.dark < 0.02, { timeout: 30000 }).catch(() => {});
   check((await game(() => window.__game.fade.dark)) < 0.02, 'and then it brightens');
+
+  // 14. the real table is still unknown (nothing remembered): a finger that goes down over a protected area gets the help,
+  // wherever the virtual table is; going down far from any object does not
+  await page.evaluate(() => localStorage.clear());
+  await page.goto('http://127.0.0.1:5199/?test', { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__game, { timeout: 15000 });
+  await new Promise((r) => setTimeout(r, 1500));
+  const frame2 = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const fake2 = (tip) => game((t) => window.__game.fakeController(1, { tip: t, pinch: 0, squeeze: 0 }), tip);
+  const down2 = async (x, z) => { for (const y of [0.2, 0.15, 0.1, 0.06, 0.03]) { await fake2({ x, y, z }); await frame2(); } await frame2(); };
+  const up2 = async (x, z) => { for (const y of [0.08, 0.14, 0.2]) { await fake2({ x, y, z }); await frame2(); } await frame2(); await frame2(); };
+  await down2(0.04, 0); // over the crucible's area, far from the front edge: it does not matter before the table is known
+  await up2(0.04, 0);
+  await down2(0.045, 0.005); // the second try at about the same place
+  const early = await game(() => window.__game.fingers[0]);
+  check(early && early.missing > 0, 'before the table is known the second try at the same place over an object gets the help, wherever it is');
+  await up2(0.045, 0.005);
+  await down2(0.5, -0.25);
+  await up2(0.5, -0.25);
+  await down2(0.5, -0.25);
+  check((await game(() => window.__game.fingers)).length === 0, 'going down far from every object gets none');
 
   check(errors.length === 0, `no console or page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   console.log(`screenshots in ${outDir}`);

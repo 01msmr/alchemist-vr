@@ -25,6 +25,9 @@ export function createCalibration(ctx) {
   let live = ''; // what the tracked finger does, for the status panel while the numbers are tuned
   let blocked = ''; // why a hand at table height is not counted
   let notice = '';
+  const attempting = [false, false]; // per hand: a tap too close to an object is going on (for counting the attempts)
+  let spot = null; // the place of the last blocked tap: { x, z, count, age }; the help shows from the 2nd try there
+  const top = [0, 0]; // per hand: how high the finger was a moment ago (it falls off slowly), to see a finger going down for a tap
   let fingers = []; // the fingers that are over a protected area: { x, z, missing (m still to move), dx, dz (the way out) }
   let helpLeft = 0; // seconds the protected areas stay drawn after a blocked tap
 
@@ -85,8 +88,8 @@ export function createCalibration(ctx) {
   return {
     get height() { return height; },
     get fingers() { return fingers; },
-    // are the protected areas drawn? until the table is set, and for a few seconds after a tap that was blocked
-    get help() { return origin === 'default' || !edge || helpLeft > 0; },
+    // are the protected areas drawn? only while a finger on the table at the front edge is too close to an object (and a moment after)
+    get help() { return helpLeft > 0; },
     get edge() { return edge; },
     set,
     setEdge,
@@ -98,17 +101,31 @@ export function createCalibration(ctx) {
       live = '';
       fingers = [];
       helpLeft = Math.max(0, helpLeft - dt);
+      if (spot) spot.age += dt;
       ctx.hands.forEach((hand, i) => {
         indexLocal(view, hand, tip);
         const worldY = hand.indexPoint.y;
         const nearTable = (hand.mode === 'tracked' || hand.mode === 'controller') && Math.abs(worldY - height) <= C.band; // a fingertip, or the working end of a controller's tool
+        top[i] = Math.max(worldY, top[i] - dt * C.help.fall);
+        let attemptNow = false;
         if (nearTable && hand.held === null) {
+          // The help only when it is needed: a tap too close to an object, tried a second time at about the same place. While the
+          // real table is unknown (the virtual one may be anywhere) a finger going down is a tap; once the table is set it must also
+          // be on the table at its front edge.
           const c = ctx.handInput.clearance(tip.x, tip.z);
-          if (c.margin < 0 && Math.abs(tip.y) <= 0.12) {
+          const tableKnown = origin !== 'default' && edge !== null;
+          const going = top[i] - worldY >= C.help.dip;
+          attemptNow = c.margin < 0 && going && (!tableKnown || (Math.abs(tip.y) <= C.help.height && tip.z >= LAYOUT.tableBounds.maxZ - C.help.edge));
+          if (attemptNow && !attempting[i]) { // a new try
+            const same = spot && spot.age <= C.help.within && Math.hypot(spot.x - tip.x, spot.z - tip.z) <= C.help.sameSpot;
+            spot = { x: tip.x, z: tip.z, count: same ? spot.count + 1 : 1, age: 0 };
+          }
+          if (attemptNow && spot && spot.count >= 2) {
             fingers.push({ x: tip.x, z: tip.z, missing: -c.margin, dx: c.dx, dz: c.dz });
-            helpLeft = 3;
+            helpLeft = C.help.seconds;
           }
         }
+        attempting[i] = attemptNow;
         if (nearTable) blocked = blocked || (hand.held !== null ? 'the hand holds something' : ctx.handInput.nearThing(tip) ? `too close to an object (${Math.ceil((fingers.at(-1)?.missing ?? 0) * 100)} cm more)` : '');
         const over = nearTable && hand.held === null && !ctx.handInput.nearThing(tip);
         const r = counters[i].update(worldY, over, dt, { x: hand.indexPoint.x, z: hand.indexPoint.z });
