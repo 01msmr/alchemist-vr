@@ -191,6 +191,76 @@ try {
   const kept = await game(() => window.__game.settings);
   check(kept.theme === 'light' && kept.background === 'bench' && kept.difficulty === 'hard', `the choices are remembered after a reload (${JSON.stringify(kept)})`);
 
+  // 12a. controllers: the grip button at the shelf takes the tongs, the trigger closes them on the vial, it follows
+  await game(() => window.__game.setSetting('difficulty', 'normal'));
+  await new Promise((r) => setTimeout(r, 400));
+  const lay = await game(() => ({ shelf: window.__game.layout.shelf, vial: window.__game.layout.rest.vial }));
+  const fake = (i, tip, pinch = 0, squeeze = 0) => game((i2, t, p, q) => window.__game.fakeController(i2, { tip: t, pinch: p, squeeze: q }), i, tip, pinch, squeeze);
+  const tongsAt = { x: lay.shelf.slots[0].x, y: lay.shelf.y + 0.05, z: lay.shelf.z };
+  await fake(1, tongsAt);
+  await new Promise((r) => setTimeout(r, 400));
+  check((await game(() => window.__game.hands[1].handTool)) === null, 'a controller starts with an empty hand');
+  await fake(1, tongsAt, 0, 1);
+  await new Promise((r) => setTimeout(r, 400));
+  check((await game(() => window.__game.hands[1].handTool)) === 'tongs', 'the grip button at the shelf takes the tongs');
+  await fake(1, tongsAt, 0, 0);
+  const vialCenter = await game(() => { const p = window.__game.tool('vial').pos; return { x: p.x, y: p.y, z: p.z }; });
+  const vialTip = vialCenter; // grabbed in the middle of the body
+  await fake(1, vialTip);
+  await new Promise((r) => setTimeout(r, 500));
+  await fake(1, vialTip, 1, 0);
+  await new Promise((r) => setTimeout(r, 400));
+  check((await game(() => window.__game.tool('vial').holder)) === 1, 'the trigger closes the tongs on the vial');
+  const lifted = { x: 0.1, y: 0.35, z: 0.1 };
+  const frame = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  const way = [vialTip, { ...vialTip, y: 0.35 }, lifted]; // straight up first, then over the crucible: nothing in the way
+  for (let leg = 1; leg < way.length; leg++) {
+    for (let i = 1; i <= 30; i++) { // a hand moves, it does not jump: about 1 cm per frame, however slow the frames are here
+      const k = i / 30;
+      const [a, b] = [way[leg - 1], way[leg]];
+      await fake(1, { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, z: a.z + (b.z - a.z) * k }, 1, 0);
+      await frame();
+    }
+  }
+  await new Promise((r) => setTimeout(r, 800));
+  const carried = await game(() => { const p = window.__game.tool('vial').pos; return { x: p.x, y: p.y, z: p.z }; });
+  check(Math.hypot(carried.x - lifted.x, carried.y - lifted.y, carried.z - lifted.z) < 0.06, `the vial follows the tongs (${carried.x.toFixed(2)}, ${carried.y.toFixed(2)}, ${carried.z.toFixed(2)})`);
+  await fake(1, lifted, 0, 0);
+  await new Promise((r) => setTimeout(r, 300));
+  check((await game(() => window.__game.tool('vial').holder)) === null, 'letting go of the trigger lets go of the vial');
+  const spoonAt = { x: lay.shelf.slots[1].x, y: lay.shelf.y + 0.05, z: lay.shelf.z };
+  await fake(0, spoonAt);
+  await new Promise((r) => setTimeout(r, 300));
+  await fake(0, spoonAt, 0, 1);
+  await new Promise((r) => setTimeout(r, 400));
+  check((await game(() => window.__game.hands[0].handTool)) === 'spoon', 'the other controller takes the spoon');
+  await fake(0, spoonAt, 0, 0);
+  await fake(0, { x: 0.1, y: 0.1, z: 0.1 }, 1, 0);
+  await new Promise((r) => setTimeout(r, 300));
+  check((await game(() => window.__game.hands[0].held)) === null, 'the spoon does not pick up the vial');
+  // the console with a controller: tap a button with the tongs' tip; pinch the bead and pull the cord
+  const buttonAt = await game(() => { const c = window.__game.consoleCenter('difficulty:easy'); return { x: c.x, y: 0, z: c.z }; });
+  const tapPath = [0.1, 0.07, 0.04, 0.01, 0.0, 0.02, 0.05]; // the tip comes down onto the table and goes up again, a centimeter or two per frame
+  for (const y of tapPath) { await fake(1, { x: buttonAt.x, y, z: buttonAt.z }); await frame(); await frame(); }
+  check((await game(() => window.__game.settings.difficulty)) === 'easy', 'a tap of the controller tip on a button presses it');
+  await game(() => window.__game.setSetting('difficulty', 'normal'));
+  await game(() => { window.__game.state.candleLit = true; });
+  const beadLocal = await game(() => { const b = window.__game.consoleCenter('bead'); return { x: b.x, y: b.y, z: b.z }; });
+  await fake(1, beadLocal);
+  await frame();
+  await frame();
+  await fake(1, beadLocal, 1, 0);
+  await frame();
+  await frame();
+  for (let i = 1; i <= 20; i++) { await fake(1, { x: beadLocal.x, y: beadLocal.y - 0.01 * i, z: beadLocal.z }, 1, 0); await frame(); }
+  await fake(1, { x: beadLocal.x, y: beadLocal.y - 0.2, z: beadLocal.z }, 0, 0);
+  await new Promise((r) => setTimeout(r, 400));
+  check(!(await game(() => window.__game.state.candleLit)), 'pinching the bead with the controller and pulling the cord restarts');
+  await game(() => { for (const h of window.__game.hands) h.gamepad = null; });
+  await new Promise((r) => setTimeout(r, 300));
+  await page.keyboard.press('r');
+  await new Promise((r) => setTimeout(r, 500));
+
   // 12. level 3: herbs on the flame, smoke, the ghost, a salt ring around the gold, the inverted vial catches it, the
   // cat gets gold eyes and the open vial, wakes and runs to the cushion
   // on easy a broken vial is replaced from the shelf, once

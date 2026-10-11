@@ -8,8 +8,8 @@ import { indexLocal, tipLocal } from './space.js';
 const C = INPUT.calibration;
 const at = cordPosition();
 
-// The settings console at work. Tracked hands: one tap of the index finger on the table at a control presses it;
-// a pinch near the bead takes the pull cord. Controllers do not operate it. Desktop: a click on a control, or a drag
+// The settings console at work. Tracked hands (the index finger) and controllers (the working end of the hand tool): one
+// tap on the table at a button presses it; a pinch (the trigger) near the bead takes the pull cord. Desktop: a click on a control, or a drag
 // of the bead. A full pull of the cord starts the level over.
 export function createConsole(ctx) {
   const { view, settings } = ctx;
@@ -80,7 +80,7 @@ export function createConsole(ctx) {
 
     update(dt) {
       ctx.hands.forEach((hand, i) => {
-        const tracked = hand.mode === 'tracked';
+        const tracked = hand.mode === 'tracked' || hand.mode === 'controller'; // a controller taps and pinches with its working end (the hand tool's tip)
         const pinch = tracked && hand.pinchOn;
         if (holder.hand === i) {
           if (pinch) {

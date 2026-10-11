@@ -27,6 +27,18 @@ export function installTestHook(ctx) {
       ctx.state.level = n;
       ctx.runner.enter(LEVELS[n - 1], before);
     },
+    consoleCenter: (id) => ctx.console.centerOf(id),
+    get hands() { return ctx.hands; },
+    // act like a Quest controller: its working end at `tip` (table-local), the trigger and the grip button pressed this far
+    fakeController(i, { tip, pinch = 0, squeeze = 0 }) {
+      const hand = ctx.hands[i];
+      hand.gamepad = { buttons: [{ value: pinch }, { value: squeeze }] };
+      hand.grip.visible = true;
+      const p = ctx.view.world.localToWorld(new THREE.Vector3(tip.x, tip.y, tip.z));
+      p.z += hand.tipZ; // the controller is held pointing along -z: its working end is tipZ in front of it
+      hand.grip.matrix.makeTranslation(p.x, p.y, p.z); // a controller's grip has no auto update: the XR pose sets its matrix
+      hand.grip.matrixWorldNeedsUpdate = true;
+    },
     setSetting: (key, value) => ctx.settings.set(key, value),
     get layout() { return LAYOUT; },
     // where the pointer at pixel (px, py) meets the horizontal plane at height y, table-local (what the mouse drag uses)
