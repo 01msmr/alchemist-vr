@@ -11,6 +11,7 @@ export const level2 = {
   title: 'Amalgam and sulfur',
 
   guide: {
+    icon: 'fire', // the picture on the left page
     title: 'Das zweite Werk',
     steps: [
       'Nimm mit dem Löffel Schwefel aus der Schale und lass ihn in den Tiegel fallen. Der grüne Bogen zeigt das rechte Maß.',

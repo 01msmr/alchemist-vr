@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CONSOLE as K, INPUT } from '../config/index.js';
 import { createTapCounter } from '../calibration.js';
 import { controls, hitControl, createCord, cordPosition } from '../game/console.js';
+import { hitBookZone } from '../game/book.js';
 import { createConsoleView } from '../view/console.js';
 import { indexLocal, tipLocal } from './space.js';
 
@@ -26,10 +27,13 @@ export function createConsole(ctx) {
   const hit = new THREE.Vector3();
   const pointer = new THREE.Vector2();
   const tablePlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const bookPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.03); // the book's pages are a few centimeters above the table
   const cordPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -at.z);
   const beadAt = () => bead.set(at.x, K.cord.beadY - cord.pulled, at.z);
 
-  const press = (control) => settings.set(control.row, control.value);
+  // a press: a button of the console, or a corner of the book
+  const press = (control) => (control.book ? ctx.book.turn(control.delta) : settings.set(control.row, control.value));
+  const hitAny = (x, z, margin = 0) => hitControl(x, z, margin) ?? hitBookZone(x, z, margin);
 
   const rayFrom = (e) => {
     pointer.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
@@ -46,7 +50,7 @@ export function createConsole(ctx) {
       e.stopImmediatePropagation();
       return;
     }
-    const control = r.intersectPlane(tablePlane, hit) && hitControl(hit.x, hit.z);
+    const control = (r.intersectPlane(tablePlane, hit) && hitControl(hit.x, hit.z)) || (r.intersectPlane(bookPlane, hit) && hitBookZone(hit.x, hit.z));
     if (control) {
       press(control);
       e.stopImmediatePropagation();
@@ -68,7 +72,7 @@ export function createConsole(ctx) {
 
     // Is this point (table-local) at a control or at the bead? Calibration taps stay away from them.
     near(point) {
-      return hitControl(point.x, point.z, C.keepAway) !== null || point.distanceTo(beadAt()) < K.cord.grabRadius + C.keepAway;
+      return hitAny(point.x, point.z, C.keepAway) !== null || point.distanceTo(beadAt()) < K.cord.grabRadius + C.keepAway;
     },
 
     // the center of a control (or of the bead) on the table, for the smoke test
@@ -98,10 +102,10 @@ export function createConsole(ctx) {
         pinching[i] = pinch;
 
         indexLocal(view, hand, tip);
-        const over = tracked && hand.held === null && holder.hand !== i && Math.abs(tip.y) <= C.band && hitControl(tip.x, tip.z, K.tapMargin) !== null;
+        const over = tracked && hand.held === null && holder.hand !== i && Math.abs(tip.y) <= C.band && hitAny(tip.x, tip.z, K.tapMargin) !== null;
         const r = counters[i].update(tip.y, over, dt, { x: tip.x, z: tip.z });
         if (r.done) {
-          const control = hitControl(r.points[0].x, r.points[0].z);
+          const control = hitAny(r.points[0].x, r.points[0].z);
           if (control) press(control);
         }
       });

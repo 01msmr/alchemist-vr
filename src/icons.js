@@ -1,9 +1,28 @@
 import * as THREE from 'three';
-import { faMoon, faSun, faFlask, faHammer, faHorse, faFaceSmile, faFaceMeh, faSkull } from '@fortawesome/free-solid-svg-icons';
+import { faMoon, faSun, faFlask, faHammer, faHorse, faFaceSmile, faFaceMeh, faSkull, faFire, faGhost, faDragon, faAngleLeft, faAngleRight } from '@fortawesome/free-solid-svg-icons';
 
 // Pictograms for the buttons: Font Awesome Free (CC BY 4.0) SVG paths, drawn onto a canvas at `size` pixels and used as
 // a texture on a flat plane lying on the table (a picture, finer than the voxels around it; no image files).
-const ICONS = { moon: faMoon, sun: faSun, flask: faFlask, hammer: faHammer, horse: faHorse, smile: faFaceSmile, meh: faFaceMeh, skull: faSkull };
+const ICONS = { moon: faMoon, sun: faSun, flask: faFlask, hammer: faHammer, horse: faHorse, smile: faFaceSmile, meh: faFaceMeh, skull: faSkull, fire: faFire, ghost: faGhost, dragon: faDragon, left: faAngleLeft, right: faAngleRight };
+
+// draws a named icon into a 2D context, centered at (cx, cy), `size` px along its longer side; `stroke` is an optional rim
+export function drawIcon(g, name, cx, cy, size, fill, stroke = null) {
+  const [width, height, , , path] = ICONS[name].icon;
+  const scale = size / Math.max(width, height);
+  g.save();
+  g.translate(cx - (width * scale) / 2, cy - (height * scale) / 2);
+  g.scale(scale, scale);
+  const shape = new Path2D(path);
+  if (stroke) {
+    g.lineJoin = 'round';
+    g.strokeStyle = stroke;
+    g.lineWidth = 24;
+    g.stroke(shape);
+  }
+  g.fillStyle = fill;
+  g.fill(shape);
+  g.restore();
+}
 
 const cache = new Map();
 

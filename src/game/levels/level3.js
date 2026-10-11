@@ -10,6 +10,7 @@ export const level3 = {
   title: 'The ghost and the cat',
 
   guide: {
+    icon: 'ghost', // the picture on the left page
     title: 'Das dritte Werk',
     steps: [
       'Entzünde die Kerze und streue Kräuter in den Tiegel. Der Rauch zeigt den Geist.',

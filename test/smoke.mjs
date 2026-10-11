@@ -191,6 +191,42 @@ try {
   const kept = await game(() => window.__game.settings);
   check(kept.theme === 'light' && kept.background === 'bench' && kept.difficulty === 'hard', `the choices are remembered after a reload (${JSON.stringify(kept)})`);
 
+  // 11b. the book of instructions: it turns with the levels, and by hand at its lower corners (mouse click, arrow keys)
+  check((await game(() => window.__game.book.shown)) === 0, 'the book is open at the first level');
+  await game(() => {
+    const g = window.__game;
+    const o = g.view.world.position; // look at the book
+    g.view.controls.target.set(o.x - 0.5, o.y, o.z - 0.1);
+    g.view.camera.position.set(o.x - 0.5, o.y + 0.55, o.z + 0.3);
+    g.view.controls.update();
+  });
+  await new Promise((r) => setTimeout(r, 600)); // a frame must be drawn before screen positions are right
+  const nextCorner = await game(() => { const z = window.__game.bookZone(1); const p = window.__game.screenAt(z.x, 0.03, z.z); return p; });
+  await page.mouse.click(nextCorner.x, nextCorner.y);
+  await page.waitForFunction(() => window.__game.book.shown === 1, { timeout: 10000 }).catch(() => {});
+  check((await game(() => window.__game.book.shown)) === 1, 'a click on the lower right corner turns the page');
+  await page.keyboard.press('ArrowLeft');
+  await page.waitForFunction(() => window.__game.book.shown === 0, { timeout: 10000 }).catch(() => {});
+  check((await game(() => window.__game.book.shown)) === 0, 'the left arrow key turns back');
+  await page.keyboard.press('ArrowRight');
+  await new Promise((r) => setTimeout(r, 300));
+  check(colorsIn(await shot('book-turning')) > 40, 'the turning page renders');
+  await page.waitForFunction(() => window.__game.book.shown === 1, { timeout: 10000 }).catch(() => {});
+  await game(() => window.__game.goToLevel(3));
+  await page.waitForFunction(() => window.__game.book.shown === 2, { timeout: 15000 }).catch(() => {});
+  check((await game(() => window.__game.book.shown)) === 2, 'the book opens at the page of the new level');
+  check(colorsIn(await shot('book-open')) > 40, 'the book renders');
+  await page.keyboard.press('r');
+  await new Promise((r) => setTimeout(r, 500));
+  await game(() => { // the view of the console again, for what follows
+    const g = window.__game;
+    const o = g.view.world.position;
+    g.view.controls.target.set(o.x + 0.6, o.y + 0.25, o.z + 0.0);
+    g.view.camera.position.set(o.x + 0.6, o.y + 0.55, o.z + 1.0);
+    g.view.controls.update();
+  });
+  await new Promise((r) => setTimeout(r, 600));
+
   // 12a. controllers: the grip button at the shelf takes the tongs, the trigger closes them on the vial, it follows
   await game(() => window.__game.setSetting('difficulty', 'normal'));
   await new Promise((r) => setTimeout(r, 400));
@@ -308,8 +344,8 @@ try {
     await page.mouse.down();
     const to = await game((px, pz) => window.__game.screenAt(px, 0.2, pz), x - (vialAt.x - grabbed.x), z - (vialAt.z - grabbed.z));
     await moveTo(to, 15);
-    await page.keyboard.down('Shift');
-    await page.mouse.move(to.x, to.y + 260, { steps: 10 });
+    await page.keyboard.down('Shift'); // Shift + drag down tilts (the vial stays where it is); 170 px is a full tilt and stays inside the window
+    await page.mouse.move(to.x, to.y + 170, { steps: 10 });
     await new Promise((r) => setTimeout(r, seconds * 1000));
     return to;
   };
@@ -324,6 +360,14 @@ try {
   check((await game(() => window.__game.state.finale.eyes)) === 'gold' && !(await game(() => window.__game.tool('nugget').active)), 'gold on the eyes stays as the cat\'s eyes');
   await game(() => { const g = window.__game; g.tool('vial').ph.spawn({ x: 0.3, y: 0.0575, z: -0.2 }, { x: 0, y: 0, z: 0, w: 1 }); });
   await new Promise((r) => setTimeout(r, 500));
+  await game(() => { // the cat lies far left: look at the middle of the table so that both it and the vial are well inside the window
+    const g = window.__game;
+    const o = g.view.world.position;
+    g.view.controls.target.set(o.x, o.y + 0.1, o.z - 0.1);
+    g.view.camera.position.set(o.x, o.y + 0.6, o.z + 0.9);
+    g.view.controls.update();
+  });
+  await new Promise((r) => setTimeout(r, 600));
   await dragVial(-0.25, -0.28, 1.2);
   check(await game(() => window.__game.state.finale.released), 'the open vial over the cat sets the ghost free');
   await page.keyboard.up('Shift');

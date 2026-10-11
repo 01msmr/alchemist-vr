@@ -14,6 +14,7 @@ export const level1 = {
   // substances the crucible takes from falling drops (everything else is wasted)
   // the instructions on the paper next to the table (old German, in the player's language)
   guide: {
+    icon: 'flask', // the picture on the left page
     title: 'Das erste Werk',
     steps: [
       'Entzünde ein Streichholz am Reibeisen der Schachtel und halte es an den Docht der Kerze.',

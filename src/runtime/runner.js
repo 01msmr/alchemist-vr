@@ -1,4 +1,5 @@
-import { LAYOUT } from '../config/index.js';
+import { LAYOUT, VIEW } from '../config/index.js';
+import { bookBounds } from '../game/book.js';
 import { createState, levelOf } from '../game/sim.js';
 import { PROPS } from '../props.js';
 import { LEVELS } from '../game/levels/index.js';
@@ -20,6 +21,9 @@ export function createRunner(ctx) {
     physics.removeExtras();
     const shelf = LAYOUT.shelf;
     physics.addStaticBox(0, shelf.y - shelf.thickness / 2, shelf.z, LAYOUT.tableBounds.maxX - 0.02, shelf.thickness / 2, shelf.depth / 2); // the shelf board the main tools stand on
+    const book = bookBounds(VIEW.book.margin3d);
+    const bookHeight = VIEW.book.coverThickness + VIEW.book.block.base + VIEW.book.block.perPage * (LEVELS.length - 1);
+    physics.addStaticBox(book.x, bookHeight / 2, book.z, book.hx, bookHeight / 2, book.hz); // the book is solid
     for (const [name, mesh] of Object.entries(view.props)) {
       mesh.visible = level.scene.props.includes(name);
       if (mesh.visible) {

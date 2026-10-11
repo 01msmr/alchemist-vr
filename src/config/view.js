@@ -27,11 +27,15 @@ export const VIEW = {
     hold: { inner: 0.038, outer: 0.044, good: 0x4caf50, bad: 0xe53935 },
     steps: 90, // resolution of the progress arcs
   },
-  // the instructions paper: the picture's size in pixels, the fonts and colors of the old paper
-  paper: {
-    width: 768, height: 1004, font: '"UnifrakturCook", serif', titlePx: 66, bodyPx: 40, lineHeight: 1.22, margin: 78,
-    light: '#eadcb6', dark: '#d2bd8c', edge: 'rgba(110,80,40,0.55)', stain: 'rgba(120,85,40,0.10)', ink: '#2a1a0e',
-    lift: 0.0006, // m above the table top
+  // the book of instructions: the page picture in pixels, fonts and colors of the old paper, the leather, the thickness
+  book: {
+    page: { width: 512, height: 716 }, font: '"UnifrakturCook", serif', titlePx: 50, bodyPx: 27, lineHeight: 1.22, margin: 56,
+    light: '#eadcb6', dark: '#d0ba88', stain: 'rgba(120,85,40,0.10)', ink: '#2a1a0e', inkSoft: 'rgba(42,26,14,0.16)', note: '#8e1b17',
+    cover: 0x4a2c17, fitting: 0xa07a32, ribbon: 0x8e1b17, wax: 0x9b1c16, waxIcon: '#6e0f0c', waxRim: '#c24a40',
+    coverThickness: 0.006, margin3d: 0.01, // m: the leather's thickness and how far it reaches past the pages
+    block: { base: 0.014, perPage: 0.006 }, // m: the stack of pages on each side, thicker the more pages lie on it
+    leafSeconds: 0.7, leafFastSeconds: 0.3, // one page turns in this long (quicker when several are queued)
+    sealIcon: 'dragon',
   },
   panel: { canvasWidth: 1024, canvasHeight: 320, font: '26px monospace', lineHeight: 44 },
 };

@@ -34,8 +34,8 @@ export const LAYOUT = {
   salt: { x: -0.42, y: 0, z: 0.1, half: 0.035, height: 0.03, centerY: 0.02 },
   cat: { x: -0.25, z: -0.28, eyeY: 0.03 }, // where the cat lies; its eyes are at this height
   cushion: { x: -0.55, z: -0.36, half: 0.05 },
-  // the instructions on old paper lying left of the experiment (yaw in rad)
-  guide: { x: -0.5, z: -0.12, w: 0.26, d: 0.34, yaw: 0.12 },
+  // the old book with the instructions, open, lying left of the experiment (yaw in rad; a page is pageW x pageD m)
+  book: { x: -0.55, z: -0.12, pageW: 0.2, pageD: 0.28, yaw: 0.1, zone: 0.07 },
   // where the tools start: x, z on the table; `lying` = on its side with its axis along x, else standing up
   // (y = where it stands: the shelf's top; the main tools start in the left half of the shelf)
   rest: { vial: { x: -0.425, y: 0.12, z: backEdge + 0.07, lying: false }, rod: { x: -0.2, y: 0.12, z: backEdge + 0.07, lying: true } },

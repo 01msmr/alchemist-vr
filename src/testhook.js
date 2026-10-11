@@ -27,6 +27,8 @@ export function installTestHook(ctx) {
       ctx.state.level = n;
       ctx.runner.enter(LEVELS[n - 1], before);
     },
+    get book() { return ctx.book.book; },
+    bookZone: (delta) => { const B = LAYOUT.book; const z = delta > 0 ? { x: B.pageW - 0.0435, z: B.pageD / 2 - 0.0395 } : { x: -B.pageW + 0.0435, z: B.pageD / 2 - 0.0395 }; return { x: B.x + z.x * Math.cos(B.yaw) + z.z * Math.sin(B.yaw), z: B.z - z.x * Math.sin(B.yaw) + z.z * Math.cos(B.yaw) }; },
     consoleCenter: (id) => ctx.console.centerOf(id),
     get hands() { return ctx.hands; },
     // act like a Quest controller: its working end at `tip` (table-local), the trigger and the grip button pressed this far
