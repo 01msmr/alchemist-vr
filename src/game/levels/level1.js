@@ -25,6 +25,12 @@ export const level1 = {
     ],
   },
 
+  // what the book writes in red when it goes wrong: the outcome, the step that was struck through (index) and the words
+  failures: {
+    sludge: { step: 2, text: 'Zu viel Quecksilber: der Tiegel ist zur Brühe geworden. Beginne von vorn.' },
+    burnt: { step: 1, text: 'Zu heiß, zu lange: das Blei ist verbrannt. Beginne von vorn.' },
+  },
+
   accepts: { hg: (c) => c.content === 'lead' && c.temp >= CFG.MELT },
 
   // One row per reaction: when the condition has held for `hold` seconds, apply the outcome.

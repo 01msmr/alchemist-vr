@@ -198,6 +198,20 @@ try {
   const kept = await game(() => window.__game.settings);
   check(kept.theme === 'light' && kept.background === 'bench' && kept.difficulty === 'hard', `the choices are remembered after a reload (${JSON.stringify(kept)})`);
 
+  // 11a. too hot for too long: the lead burns, the book writes the reason in red, a restart wipes it
+  await page.keyboard.press('r');
+  await new Promise((r) => setTimeout(r, 500));
+  await game(() => { const g = window.__game; g.state.candleLit = true; g.state.crucible.temp = 0.97; });
+  await page.waitForFunction(() => window.__game.state.crucible.content === 'burnt', { timeout: 40000 }).catch(() => {});
+  check((await game(() => window.__game.state.crucible.content)) === 'burnt', 'lead held too hot burns');
+  const note = await game(() => window.__game.notes[0]);
+  check(note && note.step === 1 && /heiß/.test(note.text), `the book writes the reason on the first spread (${JSON.stringify(note)})`);
+  await new Promise((r) => setTimeout(r, 500));
+  check(colorsIn(await shot('failure')) > 40, 'the failure scene renders (smoke, symbol)');
+  await page.keyboard.press('r');
+  await new Promise((r) => setTimeout(r, 500));
+  check((await game(() => window.__game.notes[0])) === null, 'a restart wipes the note');
+
   // 11b. the book of instructions: it turns with the levels, and by hand at its lower corners (mouse click, arrow keys)
   check((await game(() => window.__game.book.shown)) === 0, 'the book is open at the first level');
   await game(() => {

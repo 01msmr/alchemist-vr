@@ -247,6 +247,8 @@ export function createBookView(view) {
   const set = (mesh, texture) => { if (mesh.material.map !== texture) { mesh.material.map = texture; mesh.material.needsUpdate = true; } };
 
   return {
+    get notes() { return notes; },
+
     // a note in red ink on a spread (`step` is struck through), or null to wipe it
     setNote(k, note) {
       if (JSON.stringify(notes[k]) === JSON.stringify(note)) return;

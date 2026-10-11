@@ -45,6 +45,7 @@ export function createRunner(ctx) {
     // a new game: level 1 with nothing spilled
     reset() {
       ctx.transition?.cancel(); // no fade for a restart
+      ctx.hazard?.reset(); // and no red notes in the book
       ctx.state = createState();
       ctx.dropWorld.reset();
       ctx.puddles.clear();

@@ -21,6 +21,13 @@ export const level2 = {
     ],
   },
 
+  failures: {
+    slag: { step: 0, text: 'Zu viel Schwefel: es ist Schlacke geworden. Beginne von vorn.' },
+    burnt: { step: 1, text: 'Zu heiß, zu lange: das Amalgam ist verbrannt. Beginne von vorn.' },
+    fools: { step: 1, text: 'Nicht gerührt oder nicht heiß genug: nur falsches Gold.' },
+    dull: { step: 1, text: 'Mattes Gold: rühre länger und halte das rechte Maß.' },
+  },
+
   accepts: { sulfur: (c) => c.content === 'amalgam' },
   // what can be stirred: hot amalgam that has sulfur in it
   stirs: (c) => c.content === 'amalgam' && sulfur(c) > 0 && c.temp >= CFG.MELT,
