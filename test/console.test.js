@@ -26,7 +26,7 @@ test('every option of every row is a button, side by side with the first on the 
 });
 
 test('icons lie behind their buttons and do not reach the next row\'s buttons', () => {
-  const half = (CONSOLE.buttons.iconVoxels * LAYOUT.voxel) / 2;
+  const half = CONSOLE.buttons.iconSize / 2;
   for (const c of controls()) {
     assert.ok(c.iconZ < c.z);
     for (const other of controls().filter((o) => o.z !== c.z)) {

@@ -10,14 +10,14 @@ export const CONSOLE = {
     { key: 'background', z: 0.04, options: [{ value: 'lab', icon: 'flask' }, { value: 'bench', icon: 'hammer' }, { value: 'stable', icon: 'horse' }] },
     { key: 'difficulty', z: -0.06, options: [{ value: 'easy', icon: 'smile' }, { value: 'normal', icon: 'meh' }, { value: 'hard', icon: 'skull' }] },
   ],
-  buttons: { sizeVoxels: 4, pitch: 0.06, inset: 0.1, iconVoxels: 7, iconGap: 0.045 }, // the icon lies this far behind its button's middle
+  buttons: { sizeVoxels: 4, pitch: 0.06, inset: 0.1, iconSize: 0.05, iconGap: 0.045 }, // the icon picture is this wide (m) and lies this far behind its button's middle
   tapMargin: 0.01, // a fingertip this close outside a button still counts as over it
   cord: { inset: 0.32, z: 0.05, lampY: 1.35, beadY: 0.45, pull: 0.15, grabRadius: 0.05, springTime: 0.2, segment: 0.0075, bead: 0.03 },
   colors: {
     pocketFloor: 0x3b3f45,
     buttonPassive: 0x1f5a2e, // dark green
     buttonActive: 0x57ff7a, // lit
-    icon: 0x15171a,
+    icon: '#15171a', // CSS color of the picture
     lamp: 0xffe27a,
     socket: 0x555555,
     cordWhite: 0xeeeeee,

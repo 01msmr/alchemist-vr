@@ -3,18 +3,11 @@ import { CONSOLE as K, LAYOUT } from '../config/index.js';
 import { controls, cordPosition, redSegments } from '../game/console.js';
 import { VoxelObject } from '../voxel-object.js';
 import { toGeometry } from '../voxel-mesh.js';
-import { iconRows } from '../icons.js';
+import { iconTexture } from '../icons.js';
 
 const v = LAYOUT.voxel;
 const depth = K.pocket.voxels * v;
 const rgb = (hex) => [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255];
-
-// a flat pictogram (one voxel thick) from an ASCII bitmap
-function iconGeometry(rows, color) {
-  const obj = VoxelObject.empty(rows[0].length, 1, rows.length, [[0, 0, 0], rgb(color)]);
-  rows.forEach((row, z) => [...row].forEach((ch, x) => { if (ch === '#') obj.set(x, 0, z, 1); }));
-  return toGeometry(obj, v);
-}
 
 // a solid ball of voxels, `r` voxels in radius
 function ballGeometry(r, color) {
@@ -33,14 +26,16 @@ export function createConsoleView(view) {
   view.world.add(group);
 
   const buttons = {};
+  const iconPlane = new THREE.PlaneGeometry(K.buttons.iconSize, K.buttons.iconSize).rotateX(-Math.PI / 2); // lying flat, the top of the picture away from the player
   for (const c of controls()) {
     const body = new THREE.Mesh(new THREE.BoxGeometry(2 * c.halfX - 0.004, depth, 2 * c.halfZ - 0.004), solid(K.colors.buttonPassive));
     body.position.y = -depth / 2;
     const button = new THREE.Group();
     button.position.set(c.x, 0, c.z);
     button.add(body);
-    const icon = new THREE.Mesh(iconGeometry(iconRows(c.icon, K.buttons.iconVoxels), K.colors.icon), view.material); // on the table, behind its button
-    icon.position.set(c.x, 0, c.iconZ);
+    const icon = new THREE.Mesh(iconPlane, new THREE.MeshBasicMaterial({ map: iconTexture(c.icon, K.colors.icon), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 })); // a picture on the table, behind its button
+    icon.position.set(c.x, 0.0004, c.iconZ);
+    icon.renderOrder = 1;
     group.add(button, icon);
     buttons[c.id] = { button, body, c };
   }
