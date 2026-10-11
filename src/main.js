@@ -21,6 +21,7 @@ import { createHandInput } from './runtime/hands.js';
 import { createMouse } from './runtime/mouse.js';
 import { createCalibration } from './runtime/calibration.js';
 import { createConsole } from './runtime/console.js';
+import { createHandTools } from './runtime/handtools.js';
 import { installTestHook } from './testhook.js';
 import { createTriggerLog } from './triggertest.js';
 
@@ -84,6 +85,7 @@ for (const hand of ctx.hands) {
   view.world.add(hand.fist.group, hand.pinchGrip.group);
   Object.assign(hand, { tool: null, grains: null, tipPos: new THREE.Vector3(), tipVel: new THREE.Vector3(), tipValid: false });
 }
+ctx.handTools = createHandTools(ctx);
 ctx.runner.reset();
 installTestHook(ctx);
 

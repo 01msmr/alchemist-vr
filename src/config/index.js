@@ -6,6 +6,7 @@
 //   tools.js    the loose tools: size, mass, grab radius, breaking speed       (TOOLS)
 //   view.js     colors, ring and effect sizes, the glass, the status panel     (VIEW)
 //   difficulty.js what easy and hard change in the rules                       (DIFFICULTY)
+//   handtools.js the tongs and the spoon on a controller                        (HANDTOOLS)
 //   console.js  the settings console: tap buttons, pull cord               (CONSOLE)
 // Colors of the voxel models are the shared palette in ../palette.js.
 import { CFG as game } from './game.js';
@@ -16,6 +17,7 @@ import { TOOLS as tools } from './tools.js';
 import { VIEW as view } from './view.js';
 import { CONSOLE as console_ } from './console.js';
 import { DIFFICULTY as difficulty } from './difficulty.js';
+import { HANDTOOLS as handtools } from './handtools.js';
 
 // freezes an object and everything inside it, so nothing changes a value by accident
 function deepFreeze(object) {
@@ -31,3 +33,4 @@ export const TOOLS = deepFreeze(tools);
 export const VIEW = deepFreeze(view);
 export const CONSOLE = deepFreeze(console_);
 export const DIFFICULTY = deepFreeze(difficulty);
+export const HANDTOOLS = deepFreeze(handtools);

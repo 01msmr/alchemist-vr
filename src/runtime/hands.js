@@ -6,6 +6,7 @@ import { PROPS } from '../props.js';
 import { holdOffset } from '../tracking.js';
 import { analog, showGrip, pulse } from '../vr.js';
 import { tipLocal, palmLocal } from './space.js';
+import { canDo } from '../handtools.js';
 
 const ONE = new THREE.Vector3(1, 1, 1);
 const { reach, contact, analog: A, motion, haptics: H } = INPUT;
@@ -86,25 +87,27 @@ export function createHandInput(ctx) {
     return null;
   }
 
-  // Things a pinch can do other than holding a tool.
-  function tryPinchAction(hand) {
+  // Things a pinch can do other than holding a tool. A controller's hand tool says which of them it may do
+  // (`handTool`); a tracked hand may do all of them (null).
+  function tryPinchAction(hand, handTool = null) {
     const state = ctx.state;
+    const can = (action) => handTool === null || canDo(handTool, action);
     tipLocal(view, hand, tip);
-    const source = sourceNear(tip);
-    if (tip.distanceTo(ctx.hud.panel.position) <= reach.reset) {
+    const source = can('grains') ? sourceNear(tip) : null;
+    if (handTool === null && tip.distanceTo(ctx.hud.panel.position) <= reach.reset) {
       ctx.runner.reset(); // pinching the status panel starts over (a tracked hand has no reset button)
       hand.pinchOn = true; // still pinching: not a new press
-    } else if (tip.distanceTo(ctx.matches.boxCenter) <= reach.matchbox && ctx.matches.tryTake(hand.index)) {
+    } else if (can('match') && tip.distanceTo(ctx.matches.boxCenter) <= reach.matchbox && ctx.matches.tryTake(hand.index)) {
       hand.held = 'match';
       pulse(hand, H.grab.strength, H.grab.ms);
     } else if (source) {
       hand.held = 'grains'; // a pinch of the substance between the fingertips
       hand.grains = source;
       pulse(hand, H.pinchSource.strength, H.pinchSource.ms);
-    } else if (!state.nugget && Math.hypot(tip.x - c.x, tip.z - c.z) <= reach.nugget && tip.y > reach.nuggetBand.yMin && tip.y < reach.nuggetBand.yMax && takeNugget(state)) {
+    } else if (can('nugget') && !state.nugget && Math.hypot(tip.x - c.x, tip.z - c.z) <= reach.nugget && tip.y > reach.nuggetBand.yMin && tip.y < reach.nuggetBand.yMax && takeNugget(state)) {
       ctx.tools.spawn(ctx.tools.tools.nugget, tip);
       beginGrip(hand, ctx.tools.tools.nugget, 'pinch', tip, 1);
-    } else if (state.candleLit && tip.distanceTo(wick) <= reach.snuff) {
+    } else if (can('wick') && state.candleLit && tip.distanceTo(wick) <= reach.snuff) {
       snuffCandle(state); // pinch out the flame
       pulse(hand, H.snuff.strength, H.snuff.ms);
     }
@@ -140,9 +143,13 @@ export function createHandInput(ctx) {
         hand.tipPos.copy(tmp);
         hand.tipValid = true;
 
+        const controller = hand.mode === 'controller';
         if (!hand.squeezeOn && squeeze >= A.squeezeOn) {
           hand.squeezeOn = true;
-          if (!hand.held) tryGrabTool(hand, 'fist');
+          if (!hand.held) {
+            if (controller) ctx.handTools.grip(hand); // the grip button changes the hand tool
+            else tryGrabTool(hand, 'fist');
+          }
         } else if (hand.squeezeOn && squeeze < A.squeezeOff) {
           hand.squeezeOn = false;
           if (hand.held === 'tool' && hand.holdMode === 'fist') ctx.tools.release(hand.tool);
@@ -150,7 +157,13 @@ export function createHandInput(ctx) {
 
         if (!hand.pinchOn && pinch >= A.pinchOn) {
           hand.pinchOn = true;
-          if (!hand.held && !tryGrabTool(hand, 'pinch')) tryPinchAction(hand);
+          if (!hand.held) {
+            if (!controller) {
+              if (!tryGrabTool(hand, 'pinch')) tryPinchAction(hand);
+            } else if (!(canDo(hand.handTool, 'tool') && tryGrabTool(hand, 'pinch'))) {
+              tryPinchAction(hand, hand.handTool); // the trigger: the tongs hold, the spoon scoops
+            }
+          }
         } else if (hand.pinchOn && pinch < A.pinchOff) {
           hand.pinchOn = false;
           if (hand.held === 'tool' && hand.holdMode === 'pinch') ctx.tools.release(hand.tool);
@@ -164,16 +177,17 @@ export function createHandInput(ctx) {
       }
     },
 
-    // A controller's hand is drawn on the tool it holds; a tracked hand draws itself.
+    // A controller carries its hand tool (always drawn); a tracked hand draws itself and its fingertips wrap a held tool.
     updateVisuals() {
       const handPos = new THREE.Vector3();
       for (const hand of ctx.hands) {
         const holding = hand.held === 'tool';
-        const drawn = hand.mode === 'controller';
-        hand.model.group.visible = drawn && !holding;
-        hand.fist.group.visible = drawn && holding && hand.holdMode === 'fist';
-        hand.pinchGrip.group.visible = drawn && holding && hand.holdMode === 'pinch';
-        if (!holding || !drawn) continue;
+        const controller = hand.mode === 'controller';
+        hand.model.group.visible = controller;
+        hand.fist.group.visible = false;
+        hand.pinchGrip.group.visible = !controller && holding && hand.holdMode === 'pinch';
+        hand.fist.group.visible = !controller && holding && hand.holdMode === 'fist';
+        if (!holding || controller) continue;
         const t = hand.tool;
         view.world.worldToLocal(tmp.setFromMatrixPosition(hand.grip.matrixWorld));
         if (hand.holdMode === 'fist') {

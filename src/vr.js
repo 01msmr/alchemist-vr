@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
-import { createPincer, createFistWrap, createPinchGrip } from './hand.js';
+import { createFistWrap, createPinchGrip } from './hand.js';
+import { createHandToolRig } from './handtoolview.js';
 import { INPUT } from './config/index.js';
 import { handFrame, pinchPoint, pinchStrength, gripStrength, graspPoint, chooseMode, quarterTurns } from './tracking.js';
 
@@ -21,7 +22,7 @@ const JOINTS = [
 // Hand tracking is the main input; a controller is the fallback. updateInput() fills the same fields from
 // either, so the game does not care which one is in use. `grip` is an object whose matrixWorld is the grip frame
 // (origin at the palm or the controller grip, -Z forward, +Y toward the thumb side).
-// `model` is the controller's fingertip pincer; `fist` and `pinchGrip` are hands drawn on a tool held with a
+// `model` is the hand tool on a controller (tongs, spoon); `fist` and `pinchGrip` are hands drawn on a tool held with a
 // controller (their groups are added to the game world by the caller); tracked hands draw themselves.
 export function setupVR(renderer, scene) {
   renderer.xr.enabled = true;
@@ -37,12 +38,13 @@ export function setupVR(renderer, scene) {
     trackedHand.add(handModels.createHandModel(trackedHand, 'boxes')); // blocky joints, no downloads
     scene.add(trackedHand);
 
-    const model = createPincer();
+    const model = createHandToolRig(); // what a controller carries: tongs or spoon
     grip.add(model.group);
 
     const hand = {
       index, handedness: index === 0 ? 'left' : 'right', grip, trackedHand, gamepad: null,
       mode: 'none', pinch: 0, squeeze: 0,
+      handTool: 'tongs', tipZ: TIP_Z, // the hand tool a controller carries and how far its working end is in front of the grip
       tipPoint: new THREE.Vector3(), // where the fingertips pinch, in the scene
       indexPoint: new THREE.Vector3(), // the index fingertip (a controller's tip), in the scene: it taps the table
       graspPoint: new THREE.Vector3(), // where a fist closes, in the scene
@@ -102,7 +104,7 @@ export function updateInput(hand) {
     // the points are measured on the real controller; the game's frame may be turned against it (from the pose each
     // frame, so the turn never piles up)
     const real = controllerIsTurned ? realFrame.multiplyMatrices(hand.grip.parent.matrixWorld, hand.grip.matrix) : hand.grip.matrixWorld;
-    hand.tipPoint.set(0, 0, -TIP_Z).applyMatrix4(real);
+    hand.tipPoint.set(0, 0, -(hand.tipZ ?? TIP_Z)).applyMatrix4(real);
     hand.indexPoint.copy(hand.tipPoint);
     hand.graspPoint.set(0, 0, -PALM_Z).applyMatrix4(real);
     if (controllerIsTurned) hand.grip.matrixWorld.copy(real).multiply(CONTROLLER_TURN);
@@ -133,9 +135,9 @@ export function analog(hand) {
   return { pinch: hand.pinch, squeeze: hand.squeeze };
 }
 
-// Visual feedback for a controller: the fingertips close with the trigger.
+// Visual feedback for a controller: the jaws of the tongs close with the trigger, the spoon shows its load.
 export function showGrip(hand, pinch) {
-  hand.model.update(pinch);
+  hand.model.update(pinch, { loaded: hand.held === 'grains', holdWidth: hand.held === 'tool' ? 2 * hand.tool.spec.radius : 0 });
 }
 
 // Haptics exist on controllers only.

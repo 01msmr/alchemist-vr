@@ -73,7 +73,7 @@ export function statusLines(state, level, hands, puddleTotal, tableLine) {
     `level ${state.level}  candle ${state.candleLit ? 'LIT' : 'out'}  matches ${state.matches}${matchText}`,
     ...level.status(state, { puddleTotal }),
     `temp ${c.temp.toFixed(2)} (melt ${CFG.MELT} / burn ${rules().BURN})${c.quality !== null ? `  quality ${c.quality.toFixed(2)}` : ''}`,
-    hands.map((h) => `${h.handedness[0].toUpperCase()}:${h.mode} p${h.pinch.toFixed(2)} g${h.squeeze.toFixed(2)}`).join('   '),
+    hands.map((h) => `${h.handedness[0].toUpperCase()}:${h.mode}${h.mode === 'controller' ? ` ${h.handTool}` : ''} p${h.pinch.toFixed(2)} g${h.squeeze.toFixed(2)}`).join('   '),
     tableLine,
   ];
 }
