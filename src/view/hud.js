@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { rules } from '../game/rules.js';
 import { CFG, LAYOUT, VIEW } from '../config/index.js';
 
 // The status text. On the desktop it is a text block in the corner; in the headset the only readable thing is
@@ -71,7 +72,7 @@ export function statusLines(state, level, hands, puddleTotal, tableLine) {
   return [
     `level ${state.level}  candle ${state.candleLit ? 'LIT' : 'out'}  matches ${state.matches}${matchText}`,
     ...level.status(state, { puddleTotal }),
-    `temp ${c.temp.toFixed(2)} (melt ${CFG.MELT} / burn ${CFG.BURN})${c.quality !== null ? `  quality ${c.quality.toFixed(2)}` : ''}`,
+    `temp ${c.temp.toFixed(2)} (melt ${CFG.MELT} / burn ${rules().BURN})${c.quality !== null ? `  quality ${c.quality.toFixed(2)}` : ''}`,
     hands.map((h) => `${h.handedness[0].toUpperCase()}:${h.mode} p${h.pinch.toFixed(2)} g${h.squeeze.toFixed(2)}`).join('   '),
     tableLine,
   ];

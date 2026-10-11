@@ -1,3 +1,4 @@
+import { rules } from './game/rules.js';
 import * as CANNON from 'cannon-es';
 import { PHYSICS } from './config/index.js';
 
@@ -204,7 +205,7 @@ export function createPhysics(opts) {
       // impact speed along the contact normal, from the velocity before the solver slowed the tool
       checkBreak() {
         if (!alive || spec.breakSpeed === null || body.type !== CANNON.Body.DYNAMIC || !contactNormal) return;
-        if (Math.abs(pre.dot(contactNormal)) <= spec.breakSpeed) return;
+        if (Math.abs(pre.dot(contactNormal)) <= spec.breakSpeed * rules().BREAK_SPEED_FACTOR) return; // the difficulty scales it
         const pos = { x: body.position.x, y: body.position.y, z: body.position.z };
         const vel = { x: pre.x, y: pre.y, z: pre.z };
         const quat = { x: body.quaternion.x, y: body.quaternion.y, z: body.quaternion.z, w: body.quaternion.w };

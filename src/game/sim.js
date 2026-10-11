@@ -1,4 +1,5 @@
 import { CFG } from '../config/index.js';
+import { rules } from './rules.js';
 import { LEVELS } from './levels/index.js';
 
 // The state of the game and its rules, as plain functions on a plain object (no rendering, no input).
@@ -40,11 +41,11 @@ export function strikeMatch(s) {
 export function strokeMatch(s, onStriker, speed, dist) {
   const m = s.match;
   if (!m || m.lit > 0 || m.broken) return null;
-  if (!onStriker || speed < CFG.STRIKE_SPEED) {
+  if (!onStriker || speed < rules().STRIKE_SPEED) {
     m.stroke = 0; // scraping slowly does nothing
     return null;
   }
-  if (speed > CFG.STRIKE_MAX) {
+  if (speed > rules().STRIKE_MAX) {
     m.broken = true;
     return 'broken';
   }
@@ -128,7 +129,7 @@ export function step(s, dt) {
     if (s.match.lit <= 0) s.match = null; // burnt out
   }
 
-  c.temp = s.candleLit ? Math.min(1, c.temp + CFG.HEAT_RATE * dt) : Math.max(0, c.temp - CFG.COOL_RATE * dt);
+  c.temp = s.candleLit ? Math.min(1, c.temp + rules().HEAT_RATE * dt) : Math.max(0, c.temp - CFG.COOL_RATE * dt);
 
   for (const r of levelOf(s).reactions) {
     if (!r.when(c)) {

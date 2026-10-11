@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CFG, CONSOLE, INPUT, LAYOUT, VIEW } from './config/index.js';
 import { createSettings } from './settings.js';
+import { useDifficulty } from './game/rules.js';
 import { parseVox } from './vox.js';
 import bottleUrl from './assets/bottle.vox?url';
 import { crucibleModel, crucibleContents, standModel, FLAME_FRAMES } from './assets.js';
@@ -65,7 +66,14 @@ const applyLook = (s) => {
   ctx.hud.setTheme(VIEW.themes[s.theme]);
 };
 applyLook(ctx.settings.get());
-ctx.settings.subscribe(applyLook);
+useDifficulty(ctx.settings.get().difficulty);
+ctx.settings.subscribe((s, name) => {
+  applyLook(s);
+  if (name === 'difficulty') {
+    useDifficulty(s.difficulty);
+    ctx.runner.reset(); // other windows in the middle of a level would not be fair
+  }
+});
 ctx.console = createConsole(ctx); // before the mouse: a click on a control must not pick anything up
 ctx.mouse = createMouse(ctx); // before the controls: its pointerdown must run first
 createControls(view);

@@ -1,4 +1,5 @@
 import { CFG } from '../../config/index.js';
+import { rules } from '../rules.js';
 import { amalgamQuality } from '../scoring.js';
 import { pourStartAngle } from '../pouring.js';
 
@@ -18,19 +19,19 @@ export const level1 = {
   reactions: [
     {
       id: 'sludge',
-      when: (c) => c.content === 'lead' && mercury(c) > CFG.DOSE_MAX,
+      when: (c) => c.content === 'lead' && mercury(c) > rules().DOSE_MAX,
       hold: 0,
       apply: (c) => { c.content = 'sludge'; c.quality = 0; },
     },
     {
       id: 'burn',
-      when: (c) => c.content === 'lead' && c.temp >= CFG.BURN,
-      hold: CFG.BURN_HOLD,
+      when: (c) => c.content === 'lead' && c.temp >= rules().BURN,
+      get hold() { return rules().BURN_HOLD; }, // read when it is checked: the difficulty can change
       apply: (c) => { c.content = 'burnt'; c.quality = 0; },
     },
     {
       id: 'amalgam',
-      when: (c) => c.content === 'lead' && c.temp >= CFG.MELT && mercury(c) >= CFG.DOSE_MIN && mercury(c) <= CFG.DOSE_MAX,
+      when: (c) => c.content === 'lead' && c.temp >= CFG.MELT && mercury(c) >= rules().DOSE_MIN && mercury(c) <= rules().DOSE_MAX,
       hold: CFG.AMALGAM_HOLD,
       apply: (c) => { c.content = 'amalgam'; c.quality = amalgamQuality(c); },
     },
@@ -42,12 +43,14 @@ export const level1 = {
   scene: { tools: ['vial'], props: [] },
 
   // the rings around the crucible mouth: the dose window, the fill, and two progress arcs
-  gauge: {
-    substance: 'hg',
-    window: [CFG.DOSE_MIN, CFG.DOSE_MAX],
-    scale: CFG.VIAL_CAPACITY, // the ring covers 0 .. scale doses
-    hold: { from: 'progress', id: 'amalgam', seconds: CFG.AMALGAM_HOLD },
-    danger: { id: 'burn', seconds: CFG.BURN_HOLD },
+  get gauge() {
+    return {
+      substance: 'hg',
+      window: [rules().DOSE_MIN, rules().DOSE_MAX],
+      scale: CFG.VIAL_CAPACITY, // the ring covers 0 .. scale doses
+      hold: { from: 'progress', id: 'amalgam', seconds: CFG.AMALGAM_HOLD },
+      danger: { id: 'burn', seconds: rules().BURN_HOLD },
+    };
   },
 
   // the level's lines of the status panel; info: { puddleTotal }
@@ -57,7 +60,7 @@ export const level1 = {
       s.vialBroken
         ? `vial BROKEN (R or B/Y resets)  mess ${info.puddleTotal.toFixed(2)}`
         : `vial ${s.vial.fill.toFixed(2)} pours from ${Math.round((pourStartAngle(s.vial.fill) * 180) / Math.PI)} deg  wasted ${s.wasted.toFixed(2)} (on the table ${info.puddleTotal.toFixed(2)})`,
-      `crucible: ${c.content}  Hg ${mercury(c).toFixed(2)} (window ${CFG.DOSE_MIN}-${CFG.DOSE_MAX})`,
+      `crucible: ${c.content}  Hg ${mercury(c).toFixed(2)} (window ${rules().DOSE_MIN}-${rules().DOSE_MAX})`,
     ];
   },
 };

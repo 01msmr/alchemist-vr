@@ -60,6 +60,9 @@ export const CFG = {
   DULL_MIN: 0.4, // result quality for dull gold; below that, fool's gold
   TIDY_DELAY: 3, // s after the amalgam forms until the used objects are cleared away
 
+  BREAK_SPEED_FACTOR: 1, // difficulty: the vial's break speed (TOOLS.vial.breakSpeed) is multiplied by this
+  SPARE_VIALS: 0, // difficulty: replacement vials on the shelf
+
   AMALGAM_HOLD: 1.5, // s of liquid lead + dose in window
   BURN_HOLD: 2.5,
 };
