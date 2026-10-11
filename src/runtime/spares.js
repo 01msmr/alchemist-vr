@@ -1,13 +1,26 @@
 import { CFG } from '../config/index.js';
 import { levelOf } from '../game/sim.js';
 
-// A broken vial is replaced from the shelf while there is a spare (easy); otherwise only a restart helps.
+// The vial on the shelf. A broken vial is replaced from the shelf while there is a spare (easy); otherwise only a restart
+// helps. Safety net: if the level needs the vial and it is neither on the table nor broken (lost somehow), it stands on
+// its shelf again after a moment.
 export function createSpares(ctx) {
   let timer = 0;
+  let lostFor = 0;
   return {
     update(dt) {
       const s = ctx.state;
-      if (!(s.vialBroken && !ctx.tools.tools.vial.active && s.spareVials > 0)) {
+      const vial = ctx.tools.tools.vial;
+
+      const needed = levelOf(s).scene.tools.includes('vial') && !ctx.transition.active;
+      lostFor = needed && !vial.active && !s.vialBroken ? lostFor + dt : 0;
+      if (lostFor >= CFG.SPARE_DELAY) {
+        lostFor = 0;
+        ctx.tools.spawnAtRest('vial');
+        return;
+      }
+
+      if (!(s.vialBroken && !vial.active && s.spareVials > 0)) {
         timer = 0;
         return;
       }

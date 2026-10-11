@@ -198,6 +198,13 @@ try {
   const kept = await game(() => window.__game.settings);
   check(kept.theme === 'light' && kept.background === 'bench' && kept.difficulty === 'hard', `the choices are remembered after a reload (${JSON.stringify(kept)})`);
 
+  // 10b. a vial that is simply missing (not broken) stands on its shelf again
+  await page.keyboard.press('r');
+  await new Promise((r) => setTimeout(r, 500));
+  await game(() => { const g = window.__game; g.tool('vial').ph.remove(); g.tool('vial').active = false; g.tool('vial').group.visible = false; });
+  await page.waitForFunction(() => window.__game.tool('vial').active, { timeout: 15000 }).catch(() => {});
+  check(await game(() => window.__game.tool('vial').active), 'a vial that went missing stands on its shelf again');
+
   // 11a. too hot for too long: the lead burns, the book writes the reason in red, a restart wipes it
   await page.keyboard.press('r');
   await new Promise((r) => setTimeout(r, 500));
