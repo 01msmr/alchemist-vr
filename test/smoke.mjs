@@ -191,6 +191,71 @@ try {
   const kept = await game(() => window.__game.settings);
   check(kept.theme === 'light' && kept.background === 'bench' && kept.difficulty === 'hard', `the choices are remembered after a reload (${JSON.stringify(kept)})`);
 
+  // 12. level 3: herbs on the flame, smoke, the ghost, a salt ring around the gold, the inverted vial catches it, the
+  // cat gets gold eyes and the open vial, wakes and runs to the cushion
+  await game(() => window.__game.setSetting('difficulty', 'normal'));
+  await new Promise((r) => setTimeout(r, 300));
+  await game(() => {
+    const g = window.__game;
+    g.goToLevel(3);
+    g.state.candleLit = true;
+    g.state.crucible.amounts.herb = 0.4; // as if dropped in
+    g.spawnNugget('gold', 0.05, -0.2);
+  });
+  check((await game(() => window.__game.state.level)) === 3 && (await game(() => window.__game.tool('vial').active)), 'level 3 starts with the vial');
+  check(Math.abs(await game(() => window.__game.state.vial.fill)) < 1e-9, 'the vial is empty for the ghost');
+  await new Promise((r) => setTimeout(r, 3500));
+  check((await game(() => window.__game.state.ghost.phase)) === 'visible', 'burning herbs make smoke and the ghost shows');
+  check(colorsIn(await shot('ghost')) > 40, 'the ghost scene renders');
+  // a salt ring (radius 6 cm) around the gold, with a gap first
+  await game(() => {
+    const g = window.__game;
+    for (let a = 0.4; a < 2 * Math.PI; a += 0.02) g.puddles.add(0.05 + 0.06 * Math.cos(a), -0.2 + 0.06 * Math.sin(a), 0.005, 'salt');
+  });
+  await new Promise((r) => setTimeout(r, 400));
+  check((await game(() => window.__game.state.ring.closed)) === false, 'a ring with a gap is open');
+  await game(() => {
+    const g = window.__game;
+    for (let a = 0; a < 0.45; a += 0.02) g.puddles.add(0.05 + 0.06 * Math.cos(a), -0.2 + 0.06 * Math.sin(a), 0.005, 'salt');
+  });
+  await new Promise((r) => setTimeout(r, 600));
+  check(await game(() => window.__game.state.ring.closed), 'the closed ring is seen');
+  check((await game(() => window.__game.state.ghost.phase)) === 'lured', 'real gold in a closed ring lures the ghost');
+  // the vial, upside down over the ring, held with the mouse (Shift + drag tilts it)
+  const dragVial = async (x, z, seconds) => {
+    const v = await at('vial');
+    const vialAt = await game(() => { const p = window.__game.tool('vial').pos; return { x: p.x, z: p.z }; });
+    const grabbed = await game((px, py) => window.__game.planePoint(px, py, 0.2), v.x, v.y); // the mouse keeps the offset between the pointer and the vial
+    await moveTo(v);
+    await page.mouse.down();
+    const to = await game((px, pz) => window.__game.screenAt(px, 0.2, pz), x - (vialAt.x - grabbed.x), z - (vialAt.z - grabbed.z));
+    await moveTo(to, 15);
+    await page.keyboard.down('Shift');
+    await page.mouse.move(to.x, to.y + 260, { steps: 10 });
+    await new Promise((r) => setTimeout(r, seconds * 1000));
+    return to;
+  };
+  const held = await dragVial(0.05, -0.2, 2.2);
+  check(await game(() => window.__game.state.ring.vialOver), 'the inverted vial over the ring is seen');
+  await page.keyboard.up('Shift');
+  await page.mouse.up();
+  await new Promise((r) => setTimeout(r, 300));
+  check((await game(() => window.__game.state.ghost.phase)) === 'trapped', 'the ghost is caught');
+  await game(() => { const g = window.__game; g.spawnNugget('gold', g.layout.cat.x, g.layout.cat.z); }); // the gold onto the cat's eyes
+  await new Promise((r) => setTimeout(r, 600));
+  check((await game(() => window.__game.state.finale.eyes)) === 'gold' && !(await game(() => window.__game.tool('nugget').active)), 'gold on the eyes stays as the cat\'s eyes');
+  await game(() => { const g = window.__game; g.tool('vial').ph.spawn({ x: 0.3, y: 0.0575, z: -0.2 }, { x: 0, y: 0, z: 0, w: 1 }); });
+  await new Promise((r) => setTimeout(r, 500));
+  await dragVial(-0.25, -0.28, 1.2);
+  check(await game(() => window.__game.state.finale.released), 'the open vial over the cat sets the ghost free');
+  await page.keyboard.up('Shift');
+  await page.mouse.up();
+  await new Promise((r) => setTimeout(r, 1800));
+  check(await game(() => window.__game.state.finale.alive), 'the cat wakes');
+  check(colorsIn(await shot('cat')) > 40, 'the living cat renders');
+  await new Promise((r) => setTimeout(r, 7000));
+  check(await game(() => window.__game.state.finale.done), 'the cat reaches the cushion');
+
   check(errors.length === 0, `no console or page errors${errors.length ? `: ${errors.slice(0, 3).join(' | ')}` : ''}`);
   console.log(`screenshots in ${outDir}`);
 } catch (e) {

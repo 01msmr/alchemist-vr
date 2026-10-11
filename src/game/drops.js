@@ -58,3 +58,16 @@ export function stepDrops(list, dt, target, onLand) {
     }
   }
 }
+
+// A loaded spoon spills as it moves low over the table: `carry` = { load (grains left), acc, prev }, `pos` where the
+// spoon is now (table-local). Returns how many grains fall this frame. Higher than `maxHeight` it spills nothing.
+export function trickle(carry, pos, { perMeter, maxHeight }) {
+  const prev = carry.prev;
+  carry.prev = { x: pos.x, z: pos.z };
+  if (!prev || pos.y > maxHeight || carry.load <= 0) return 0;
+  carry.acc += Math.hypot(pos.x - prev.x, pos.z - prev.z) * perMeter;
+  const n = Math.min(Math.floor(carry.acc), Math.floor(carry.load));
+  carry.acc -= n;
+  carry.load -= n;
+  return n;
+}

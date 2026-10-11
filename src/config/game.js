@@ -63,6 +63,27 @@ export const CFG = {
   BREAK_SPEED_FACTOR: 1, // difficulty: the vial's break speed (TOOLS.vial.breakSpeed) is multiplied by this
   SPARE_VIALS: 0, // difficulty: replacement vials on the shelf
 
+  // level 3: herbs on the flame make smoke, smoke shows the ghost, a closed salt ring with gold in it holds it, the
+  // inverted vial over the ring catches it; then the cat: gold eyes, the open vial, the cat wakes and runs to the cushion
+  HERB_GRAIN: 0.0075, // doses of herb per grain
+  HERB_GRAINS_PER_PINCH: 8,
+  HERB_BURN_RATE: 0.012, // herb burnt per second while the candle is lit
+  SMOKE_RATE: 0.35, // smoke per second while herbs burn
+  SMOKE_DECAY: 0.1, // per second without
+  GHOST_VISIBLE: 0.6, // the ghost shows from this much smoke, and leaves below GHOST_FADE
+  GHOST_FADE: 0.3,
+  SALT_GRAINS_PER_SCOOP: 110,
+  TRICKLE_PER_M: 170, // salt grains that fall per meter the loaded spoon moves
+  TRICKLE_HEIGHT: 0.2, // m above the table: higher up the spoon does not spill
+  RING_RADIUS_MAX: 0.18, // m: a ring must close within this around the gold
+  RING_MIN_CELLS: 40, // the ring encloses at least this many cells (voxel sized)
+  RING_GAP_TOL: 0, // gaps up to 2 x this many cells still count as closed
+  TRAP_HOLD: 1.5, // s the inverted vial must hold over the ring
+  TRAP_RADIUS: 0.07, // m: the vial's mouth must be this close to the ring's middle
+  EYE_RADIUS: 0.05, // m: the gold lies this close to the cat's eyes
+  WAKE_TIME: 1.2, // s from opening the vial to a living cat
+  RUN_TIME: 6, // s the cat needs to the cushion
+
   AMALGAM_HOLD: 1.5, // s of liquid lead + dose in window
   BURN_HOLD: 2.5,
 };

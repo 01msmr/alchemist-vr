@@ -1,6 +1,8 @@
 import { CFG } from '../config/index.js';
 import { rules } from './rules.js';
 import { LEVELS } from './levels/index.js';
+import { createGhost } from './ghost.js';
+import { createFinale } from './finale.js';
 
 // The state of the game and its rules, as plain functions on a plain object (no rendering, no input).
 // Everything level specific (what the crucible accepts, the reactions) is in ./levels/.
@@ -18,6 +20,10 @@ export function createState() {
     nugget: null, // the gold taken out of the crucible: { kind, quality }
     candleLit: false,
     matches: CFG.MATCHES, // left in the box
+    ghost: createGhost(), // level 3: smoke and the ghost
+    finale: createFinale(), // level 3: the cat
+    ring: { closed: false, bait: null, vialOver: false, x: 0, z: 0 }, // level 3, set by the runtime each frame: the salt ring around the gold, what lies in it, the vial over it
+    finaleInput: { eyes: null, opened: false },
     match: null, // match in hand: { lit: seconds left burning (0 = unlit), stroke: m of fast stroke so far, broken: head snapped off }
   };
 }
@@ -130,6 +136,8 @@ export function step(s, dt) {
   }
 
   c.temp = s.candleLit ? Math.min(1, c.temp + rules().HEAT_RATE * dt) : Math.max(0, c.temp - CFG.COOL_RATE * dt);
+
+  levelOf(s).tick?.(s, dt); // a level may have its own continuous rules (level 3: smoke, the ghost, the cat)
 
   for (const r of levelOf(s).reactions) {
     if (!r.when(c)) {

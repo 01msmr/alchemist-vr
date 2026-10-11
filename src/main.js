@@ -22,6 +22,8 @@ import { createMouse } from './runtime/mouse.js';
 import { createCalibration } from './runtime/calibration.js';
 import { createConsole } from './runtime/console.js';
 import { createHandTools } from './runtime/handtools.js';
+import { createGhostWorld } from './runtime/ghost.js';
+import { createGhostView } from './view/ghost.js';
 import { installTestHook } from './testhook.js';
 import { createTriggerLog } from './triggertest.js';
 
@@ -86,6 +88,8 @@ for (const hand of ctx.hands) {
   Object.assign(hand, { tool: null, grains: null, tipPos: new THREE.Vector3(), tipVel: new THREE.Vector3(), tipValid: false });
 }
 ctx.handTools = createHandTools(ctx);
+ctx.ghostWorld = createGhostWorld(ctx);
+const ghostView = createGhostView(view);
 ctx.runner.reset();
 installTestHook(ctx);
 
@@ -120,7 +124,9 @@ view.renderer.setAnimationLoop(() => {
   ctx.stirring.update(dt);
   const state = ctx.state;
   const before = levelOf(state);
+  ctx.ghostWorld.sense(); // level 3: what the table shows the rules (the salt ring, the gold, the vial)
   step(state, dt);
+  ctx.ghostWorld.settle();
   const next = advanceLevel(state, dt, vial.holder !== null);
   if (next) ctx.runner.enter(next, before);
 
@@ -136,6 +142,7 @@ view.renderer.setAnimationLoop(() => {
   const contents = crucibleContents(state.crucible);
   refresh('crucible', JSON.stringify(contents), meshes.crucible, () => crucibleModel(contents));
   tools.refreshLook(state);
+  ghostView.update(state, time, vial.pos);
   const level = levelOf(state);
   effects.updateGauge(state, level);
   effects.updateDrops(ctx.drops);

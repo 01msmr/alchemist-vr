@@ -27,6 +27,8 @@ export function createMouse(ctx) {
   let tiltOriginY = 0;
   let lastPointerY = 0;
   let grains = null; // a pinch of a substance held by the mouse: the source it came from
+  let carry = null; // what is left of it (a spoonful of salt trickles while Space is held and the mouse moves)
+  let sprinkling = false;
   const grainsPos = new THREE.Vector3();
   let capturing = false; // a pick is going on: the camera must not orbit
 
@@ -62,8 +64,9 @@ export function createMouse(ctx) {
     }
     if (ctx.matches.holder === 'mouse') ctx.matches.release();
     if (grains) {
-      ctx.dropWorld.releaseGrains(grains, grainsPos, { x: 0, y: 0, z: 0 });
+      ctx.dropWorld.releaseGrains(grains, grainsPos, { x: 0, y: 0, z: 0 }, Math.round(carry.load));
       grains = null;
+      carry = null;
     }
     if (capturing) {
       capturing = false;
@@ -102,6 +105,7 @@ export function createMouse(ctx) {
     } else if (propName && PROPS[propName].source) {
       if (!grains) {
         grains = PROPS[propName].source;
+        carry = ctx.dropWorld.newCarry(grains);
         const p = pointOn('grains');
         grainsPos.set(p.x, M.holdY.grains, p.z);
       }
@@ -128,12 +132,18 @@ export function createMouse(ctx) {
     if (grains) {
       const p = pointOn('grains');
       if (p) grainsPos.set(p.x, M.holdY.grains, p.z);
+      if (grains.sprinkle && sprinkling) ctx.dropWorld.trickle(grains, carry, grainsPos);
+      else if (carry) carry.prev = null;
     }
   });
 
   addEventListener('pointerup', (e) => { if (e.button === 0) release(); });
   addEventListener('blur', release);
   addEventListener('keydown', (e) => {
+    if (e.key === ' ') {
+      sprinkling = true; // Space + drag: spill the spoonful of salt
+      e.preventDefault();
+    }
     if (e.key === 'Shift' && !shiftHeld) {
       shiftHeld = true;
       tiltOriginY = lastPointerY - tilt * M.tiltPixels;
@@ -141,6 +151,7 @@ export function createMouse(ctx) {
     if (e.key === 'r' || e.key === 'R') ctx.runner.reset();
   });
   addEventListener('keyup', (e) => {
+    if (e.key === ' ') sprinkling = false;
     if (e.key !== 'Shift') return;
     shiftHeld = false;
     tilt = 0;
@@ -171,6 +182,7 @@ export function createMouse(ctx) {
     reset() {
       tilt = 0;
       grains = null;
+      carry = null;
     },
   };
 }

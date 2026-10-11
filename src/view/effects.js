@@ -41,7 +41,7 @@ export function createEffects(view, puddles) {
   const q = (v) => Math.round(Math.min(1, Math.max(0, v)) * r.steps) / r.steps;
 
   // ---- drops in flight: one voxel big, drawn on the voxel grid ----
-  const dropColors = { hg: new THREE.Color(VIEW.drops.hg), sulfur: new THREE.Color(VIEW.drops.sulfur) };
+  const dropColors = Object.fromEntries(['hg', 'sulfur', 'herb', 'salt'].map((k) => [k, new THREE.Color(VIEW.drops[k])]));
   const stream = new THREE.InstancedMesh(new THREE.BoxGeometry(voxel, voxel, voxel), new THREE.MeshBasicMaterial({ color: 0xffffff }), MAX_DROPS);
   stream.setColorAt(0, dropColors.hg);
   stream.frustumCulled = false;
@@ -49,7 +49,7 @@ export function createEffects(view, puddles) {
   world.add(stream);
 
   // ---- spilled mercury and sulfur stay on the table as flat 1 cm patches until reset ----
-  const puddleColors = { hg: new THREE.Color(VIEW.puddles.hg), sulfur: new THREE.Color(VIEW.puddles.sulfur) };
+  const puddleColors = Object.fromEntries(['hg', 'sulfur', 'herb', 'salt'].map((k) => [k, new THREE.Color(VIEW.puddles[k])]));
   const puddleMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }), VIEW.puddles.max);
   puddleMesh.setColorAt(0, puddleColors.hg);
   puddleMesh.frustumCulled = false;

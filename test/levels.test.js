@@ -23,7 +23,7 @@ test('levels are numbered in order and each carries what the engine and the view
   assert.ok(LEVELS.length >= 2);
   LEVELS.forEach((level, i) => {
     assert.equal(level.id, i + 1);
-    assert.ok(Array.isArray(level.reactions) && level.reactions.length > 0, `level ${level.id} has reactions`);
+    assert.ok(Array.isArray(level.reactions) && (level.reactions.length > 0 || typeof level.tick === 'function'), `level ${level.id} has reactions or its own tick`);
     assert.equal(typeof level.complete, 'function');
     assert.equal(typeof level.status, 'function');
     assert.ok(level.gauge.substance in level.accepts, 'the gauge shows a substance the crucible accepts');

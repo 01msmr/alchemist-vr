@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { LAYOUT } from './config/index.js';
 import { PROPS } from './props.js';
+import { LEVELS } from './game/levels/index.js';
+import { levelOf } from './game/sim.js';
 
 // A hook for the headless smoke test (npm run smoke): installed only with ?test in the URL. It exposes the game
 // state and the screen position (pixels) of things on the table, so a script can point the mouse at them.
@@ -19,6 +21,31 @@ export function installTestHook(ctx) {
     setTableEdge: (e) => ctx.calibration.setEdge(e),
     get tableEdge() { return ctx.calibration.edge; },
     view: ctx.view,
+    // jump to a level (the way the game does when one is done)
+    goToLevel(n) {
+      const before = levelOf(ctx.state);
+      ctx.state.level = n;
+      ctx.runner.enter(LEVELS[n - 1], before);
+    },
+    setSetting: (key, value) => ctx.settings.set(key, value),
+    get layout() { return LAYOUT; },
+    // where the pointer at pixel (px, py) meets the horizontal plane at height y, table-local (what the mouse drag uses)
+    planePoint(px, py, y) {
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(new THREE.Vector2((px / innerWidth) * 2 - 1, -(py / innerHeight) * 2 + 1), ctx.view.camera);
+      const ray = raycaster.ray.clone().applyMatrix4(ctx.view.worldInv);
+      const hit = ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y), new THREE.Vector3());
+      return { x: hit.x, z: hit.z };
+    },
+    screenAt(x, y, z) {
+      point.set(x, y, z).applyMatrix4(ctx.view.world.matrixWorld).project(ctx.view.camera);
+      return { x: ((point.x + 1) / 2) * innerWidth, y: ((1 - point.y) / 2) * innerHeight };
+    },
+    tool: (id) => ctx.tools.tools[id],
+    spawnNugget(kind, x, z) {
+      ctx.state.nugget = { kind, quality: 0.9 };
+      ctx.tools.spawn(ctx.tools.tools.nugget, new THREE.Vector3(x, 0.02, z));
+    },
     get settings() { return ctx.settings.get(); },
     get cordPulled() { return ctx.console.cord.pulled; },
     breakVial: () => ctx.tools.tools.vial.ph.breakNow(),

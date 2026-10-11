@@ -17,8 +17,9 @@ export const VIEW = {
   groundSize: 30, // m, the big plane under the grid
   camera: { fov: 50, offset: { x: 0.1, y: 0.35, z: 0.5 }, target: { x: 0, y: 0.08, z: 0.03 } }, // desktop view, from the world origin
   glass: { opacity: 0.38 }, // the vial's see-through part
-  drops: { hg: 0xd7e1eb, sulfur: 0xebd73c, grain: 0.006 },
-  puddles: { hg: 0xaebac6, sulfur: 0xd9c63a, max: 3000, thin: 0.002, thick: 0.006 }, // thickness in m, by amount
+  ghost: { opacity: 0.6, smokeColor: 0x9aa0a6, smokeCubes: 36, smokeHeight: 0.25 },
+  drops: { hg: 0xd7e1eb, sulfur: 0xebd73c, herb: 0x46a03c, salt: 0xf5f5fa, grain: 0.006 },
+  puddles: { hg: 0xaebac6, sulfur: 0xd9c63a, herb: 0x3f8f36, salt: 0xf5f5fa, max: 3000, thin: 0.002, thick: 0.006 }, // thickness in m, by amount
   // rings around the crucible mouth: the dose gauge and the hold progress
   rings: {
     gauge: { inner: 0.052, outer: 0.056, back: 0x3a3f45, fill: 0xe8eef5 },

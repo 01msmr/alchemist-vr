@@ -12,6 +12,9 @@ export const DIFFICULTY = {
     STRIKE_SPEED: 0.7, STRIKE_MAX: 4.0,
     BREAK_SPEED_FACTOR: 1.35, // the vial breaks at this times the normal impact speed
     SPARE_VIALS: 1,
+    SMOKE_RATE: 0.5, SMOKE_DECAY: 0.06, // the ghost shows sooner and stays
+    RING_GAP_TOL: 1,
+    TRAP_HOLD: 1,
   },
   normal: {},
   hard: {
@@ -24,5 +27,8 @@ export const DIFFICULTY = {
     STRIKE_SPEED: 1.3, STRIKE_MAX: 2.4,
     BREAK_SPEED_FACTOR: 0.75,
     SPARE_VIALS: 0,
+    SMOKE_RATE: 0.25, SMOKE_DECAY: 0.15,
+    TRAP_HOLD: 2.2,
+    RING_MIN_CELLS: 60,
   },
 };

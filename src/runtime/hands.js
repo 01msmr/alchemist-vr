@@ -103,6 +103,7 @@ export function createHandInput(ctx) {
     } else if (source) {
       hand.held = 'grains'; // a pinch of the substance between the fingertips
       hand.grains = source;
+      hand.carry = ctx.dropWorld.newCarry(source);
       pulse(hand, H.pinchSource.strength, H.pinchSource.ms);
     } else if (can('nugget') && !state.nugget && Math.hypot(tip.x - c.x, tip.z - c.z) <= reach.nugget && tip.y > reach.nuggetBand.yMin && tip.y < reach.nuggetBand.yMax && takeNugget(state)) {
       ctx.tools.spawn(ctx.tools.tools.nugget, tip);
@@ -169,11 +170,13 @@ export function createHandInput(ctx) {
           if (hand.held === 'tool' && hand.holdMode === 'pinch') ctx.tools.release(hand.tool);
           else if (hand.held === 'match') ctx.matches.release();
           else if (hand.held === 'grains') {
-            ctx.dropWorld.releaseGrains(hand.grains, hand.tipPos, hand.tipVel); // the fingers open: the grains fall
+            ctx.dropWorld.releaseGrains(hand.grains, hand.tipPos, hand.tipVel, Math.round(hand.carry.load)); // the fingers open: what is left falls
             hand.grains = null;
+            hand.carry = null;
             hand.held = null;
           }
         }
+        if (hand.held === 'grains' && hand.grains.sprinkle) ctx.dropWorld.trickle(hand.grains, hand.carry, hand.tipPos); // a spoonful of salt spills as the spoon moves
       }
     },
 

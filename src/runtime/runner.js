@@ -9,10 +9,12 @@ export function createRunner(ctx) {
 
   // show the level's objects; `previous` is the level that just ended (none at the start)
   function enter(level, previous) {
+    level.onEnter?.(ctx.state);
     const had = new Set(previous?.scene.tools ?? []);
     const has = new Set(level.scene.tools);
     for (const id of had) if (!has.has(id)) ctx.tools.deactivate(ctx.tools.tools[id]);
     for (const id of has) if (!had.has(id)) ctx.tools.spawnAtRest(id);
+    // (only the vial and the rod have a rest place; the gold nugget is made by the player)
 
     physics.removeExtras();
     for (const [name, mesh] of Object.entries(view.props)) {
@@ -47,6 +49,7 @@ export function createRunner(ctx) {
         hand.tool = null;
         hand.holdMode = null;
         hand.grains = null;
+        hand.carry = null;
         hand.pinchOn = false;
         hand.squeezeOn = false;
       }

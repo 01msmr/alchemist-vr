@@ -115,14 +115,14 @@ export function matchboxModel(left) {
   });
 }
 
-// 7x3x7 cm dish with a heap of sulfur powder.
-export function dishModel() {
+// 7x3x7 cm dish with a heap of powder (sulfur unless said otherwise).
+export function dishModel(powder = P.SULFUR) {
   return sample([7, 3, 7], (u, v, w) => {
     const d = Math.hypot(u - 3, w - 3);
     const layer = Math.round(v);
     if (layer === 0) return d <= 3.4 ? P.DISH : 0;
-    if (layer === 1) return d <= 2.2 ? P.SULFUR : d <= 3.4 ? P.DISH : 0;
-    return d <= 1.2 ? P.SULFUR : 0;
+    if (layer === 1) return d <= 2.2 ? powder : d <= 3.4 ? P.DISH : 0;
+    return d <= 1.2 ? powder : 0;
   });
 }
 
@@ -135,4 +135,42 @@ export function rodModel() {
 export function nuggetModel(kind) {
   const color = kind === 'gold' ? P.GOLD : kind === 'dull' ? P.GOLD_DULL : P.FOOLS;
   return sample([3, 2, 2], () => color);
+}
+
+// 10x16x8 cm sheet ghost: a dome head, a wavy hem (two frames), dark eyes on the front (+z).
+export function ghostModel(frame = 0) {
+  return sample([10, 16, 8], (u, v, w) => {
+    const cx = 4.5;
+    const cz = 3.5;
+    const hem = 2.5 + (Math.round(Math.atan2(w - cz, u - cx) * 2 + frame * 2) % 2 === 0 ? 0 : 1.2); // a wavy lower edge
+    if (v < hem) return 0;
+    const head = v > 9 ? Math.sqrt(Math.max(0, 1 - ((v - 9) / 7) ** 2)) : 1;
+    const inside = ((u - cx) / (4.8 * head)) ** 2 + ((w - cz) / (3.6 * head)) ** 2 <= 1;
+    if (!inside) return 0;
+    const eye = w >= 5.6 && v >= 10 && v <= 12 && Math.abs(Math.abs(u - cx) - 1.8) <= 0.9;
+    return eye ? P.BURNT : P.GHOST;
+  });
+}
+
+// 17x10x6 cm cat facing +x: straw (a figure) or alive (orange, legs in two frames when it runs). `eyes` = the gold kind
+// lying in its eye sockets, or null for dark ones.
+export function catModel(look, eyes = null, frame = 0) {
+  const color = look === 'alive' ? P.CAT : P.GOLD_DULL;
+  const eyeColor = eyes === 'gold' ? P.GOLD : eyes === 'dull' ? P.GOLD_DULL : eyes === 'fools' ? P.FOOLS : P.BURNT;
+  return sample([17, 10, 6], (u, v, w) => {
+    const body = ((u - 7) / 5.5) ** 2 + ((v - 4.5) / 2.6) ** 2 + ((w - 2.5) / 2.2) ** 2 <= 1;
+    const head = ((u - 13.5) / 2.6) ** 2 + ((v - 6.2) / 2.6) ** 2 + ((w - 2.5) / 2.4) ** 2 <= 1;
+    const ears = v >= 8 && v <= 9.6 && (Math.abs(w - 1) <= 0.7 || Math.abs(w - 4) <= 0.7) && Math.abs(u - 13.2) <= 1;
+    const tail = u <= 2.5 && v >= 4 + (2.5 - u) * 1.2 && v <= 5.6 + (2.5 - u) * 1.2 && Math.abs(w - 2.5) <= 0.8;
+    const stride = look === 'alive' && frame === 1 ? 1 : 0;
+    const legs = v <= 2.2 && (Math.abs(u - (4 + stride)) <= 0.9 || Math.abs(u - (10 - stride)) <= 0.9) && (Math.abs(w - 1) <= 0.8 || Math.abs(w - 4) <= 0.8);
+    const eye = u >= 15 && v >= 6.4 && v <= 7.8 && (Math.abs(w - 1.2) <= 0.7 || Math.abs(w - 3.8) <= 0.7);
+    if (eye && head) return eyeColor;
+    return body || head || ears || tail || legs ? color : 0;
+  });
+}
+
+// 10x4x10 cm cushion
+export function cushionModel() {
+  return sample([10, 4, 10], (u, v, w) => (Math.abs(u - 4.5) <= 4.5 && Math.abs(w - 4.5) <= 4.5 && v <= 3.2 - 0.6 * (Math.max(Math.abs(u - 4.5), Math.abs(w - 4.5)) > 3.5 ? 1 : 0) ? P.BOX : 0));
 }

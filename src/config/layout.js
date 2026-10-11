@@ -27,6 +27,11 @@ export const LAYOUT = {
 
   matchbox: { x: -0.18, y: 0, z: 0.07, halfX: 0.03, halfZ: 0.02, height: 0.03 }, // origin = bottom center
   dish: { x: 0.24, y: 0, z: 0.11, half: 0.035, height: 0.03, centerY: 0.02 }, // level 2; centerY = the powder
+  // level 3: the herb and salt dishes, the straw cat and its cushion
+  herbs: { x: -0.32, y: 0, z: 0.1, half: 0.035, height: 0.03, centerY: 0.02 },
+  salt: { x: -0.42, y: 0, z: 0.1, half: 0.035, height: 0.03, centerY: 0.02 },
+  cat: { x: -0.25, z: -0.28, eyeY: 0.03 }, // where the cat lies; its eyes are at this height
+  cushion: { x: -0.55, z: -0.45, half: 0.05 },
   // where the tools start: x, z on the table; `lying` = on its side with its axis along x, else standing up
   rest: { vial: { x: 0.22, z: 0.08, lying: false }, rod: { x: 0.3, z: -0.06, lying: true } },
 

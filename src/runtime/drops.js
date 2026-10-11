@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CFG, INPUT, LAYOUT } from '../config/index.js';
-import { spillVelocity, spawnDrop, stepDrops } from '../game/drops.js';
+import { spillVelocity, spawnDrop, stepDrops, trickle } from '../game/drops.js';
 import { landSubstance } from '../game/sim.js';
 import { pour } from '../game/pouring.js';
 import { vialLip, tiltAngle } from '../game/geometry.js';
@@ -26,7 +26,7 @@ export function createDropWorld(ctx) {
       landSubstance(state, kind, amount);
       return;
     }
-    state.wasted += amount; // splashed off the rim or fell on the table
+    if (kind !== 'salt') state.wasted += amount; // splashed off the rim or fell on the table (salt on the table is the ring, not waste)
     let px = x;
     let pz = z;
     if (where === 'rim') { // splashes outward and lands beside the stand
@@ -58,11 +58,23 @@ export function createDropWorld(ctx) {
     },
 
     // The fingers open: grains fall from the fingertips, carrying the hand's motion.
-    releaseGrains(source, pos, vel) {
-      for (let i = 0; i < source.count; i++) {
+    releaseGrains(source, pos, vel, count = source.count) {
+      for (let i = 0; i < count; i++) {
         const a = i * GOLDEN_ANGLE;
         const spread = CFG.GRAIN_SPREAD + CFG.GRAIN_SPREAD_RANGE * ((i * GOLDEN_RATIO) % 1);
         spawnDrop(ctx.drops, pos, { x: vel.x + Math.cos(a) * spread, y: vel.y, z: vel.z + Math.sin(a) * spread }, source.amount, source.substance);
+      }
+    },
+
+    // what a hand or the mouse carries from a source: the grains left, and what the spoon spilled on the way
+    newCarry: (source) => ({ load: source.count, acc: 0, prev: null }),
+
+    // A loaded spoon (source.sprinkle) moves: grains trickle out while it is low over the table.
+    trickle(source, carry, pos) {
+      const n = trickle(carry, pos, { perMeter: CFG.TRICKLE_PER_M, maxHeight: CFG.TRICKLE_HEIGHT });
+      for (let i = 0; i < n; i++) {
+        const a = (carry.load + i) * GOLDEN_ANGLE;
+        spawnDrop(ctx.drops, pos, { x: Math.cos(a) * 0.01, y: 0, z: Math.sin(a) * 0.01 }, source.amount, source.substance);
       }
     },
 

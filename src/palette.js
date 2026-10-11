@@ -27,6 +27,10 @@ export const P = {
   SLAG: 25,
   DISH: 26,
   ROD: 27,
+  SALT: 28,
+  HERB: 29,
+  GHOST: 30,
+  CAT: 31,
 };
 
 const COLORS = {
@@ -57,6 +61,10 @@ const COLORS = {
   SLAG: [90, 75, 40],
   DISH: [180, 170, 150],
   ROD: [150, 110, 70],
+  SALT: [245, 245, 250],
+  HERB: [70, 140, 60],
+  GHOST: [220, 235, 245],
+  CAT: [220, 130, 50],
 };
 
 export const PALETTE = [[0, 0, 0]];
