@@ -78,26 +78,37 @@ const SPILL = { perMeter: 170, maxHeight: 0.2 };
 
 test('a loaded spoon spills grains in proportion to the way it moves, and nothing when it stands still', () => {
   const carry = { load: 100, acc: 0, prev: null };
-  assert.equal(trickleGrains(carry, { x: 0, y: 0.05, z: 0 }, SPILL), 0, 'the first position only starts the trail');
-  assert.equal(trickleGrains(carry, { x: 0, y: 0.05, z: 0 }, SPILL), 0, 'standing still');
+  assert.equal(trickleGrains(carry, { x: 0, y: 0.05, z: 0 }, SPILL).length, 0, 'the first position only starts the trail');
+  assert.equal(trickleGrains(carry, { x: 0, y: 0.05, z: 0 }, SPILL).length, 0, 'standing still');
   let total = 0;
-  for (let i = 1; i <= 100; i++) total += trickleGrains(carry, { x: i * 0.001, y: 0.05, z: 0 }, SPILL); // 10 cm
+  for (let i = 1; i <= 100; i++) total += trickleGrains(carry, { x: i * 0.001, y: 0.05, z: 0 }, SPILL).length; // 10 cm
   assert.equal(total, 17);
   assert.equal(carry.load, 83);
+});
+
+test('the grains of one frame are spread along the way the spoon moved, so a fast stroke leaves no gap', () => {
+  const carry = { load: 100, acc: 0, prev: null };
+  trickleGrains(carry, { x: 0, y: 0.05, z: 0 }, SPILL);
+  const grains = trickleGrains(carry, { x: 0.1, y: 0.05, z: 0.02 }, SPILL); // 10 cm in one frame
+  assert.ok(grains.length >= 16);
+  const xs = grains.map((g) => g.x);
+  assert.ok(xs.every((x, i) => i === 0 || x > xs[i - 1]), 'from the old place to the new one');
+  assert.ok(Math.abs(xs.at(-1) - 0.1) < 1e-9 && Math.abs(grains.at(-1).z - 0.02) < 1e-9, 'the last one is where the spoon is now');
+  assert.ok(xs.every((x, i) => i === 0 || x - xs[i - 1] < 0.0075), 'less than a cell between two grains');
 });
 
 test('higher than the limit nothing spills, and an empty spoon spills nothing', () => {
   const carry = { load: 100, acc: 0, prev: null };
   trickleGrains(carry, { x: 0, y: 0.5, z: 0 }, SPILL);
-  assert.equal(trickleGrains(carry, { x: 1, y: 0.5, z: 0 }, SPILL), 0);
+  assert.equal(trickleGrains(carry, { x: 1, y: 0.5, z: 0 }, SPILL).length, 0);
   const empty = { load: 0, acc: 0, prev: null };
   trickleGrains(empty, { x: 0, y: 0.05, z: 0 }, SPILL);
-  assert.equal(trickleGrains(empty, { x: 1, y: 0.05, z: 0 }, SPILL), 0);
+  assert.equal(trickleGrains(empty, { x: 1, y: 0.05, z: 0 }, SPILL).length, 0);
 });
 
 test('a fast move never spills more than the load', () => {
   const carry = { load: 5, acc: 0, prev: null };
   trickleGrains(carry, { x: 0, y: 0.05, z: 0 }, SPILL);
-  assert.equal(trickleGrains(carry, { x: 10, y: 0.05, z: 0 }, SPILL), 5);
+  assert.equal(trickleGrains(carry, { x: 10, y: 0.05, z: 0 }, SPILL).length, 5);
   assert.equal(carry.load, 0);
 });

@@ -39,10 +39,9 @@ test('a diagonal line of salt is a wall', () => {
   assert.equal(ringClosed(salt, { ix: 0, iz: 0 }, OPTIONS).closed, true);
 });
 
-test('gold outside the ring, on the salt, or in a ring that is too small is not closed in', () => {
+test('gold outside the ring, or in a ring that is too small, is not closed in', () => {
   const salt = ring(10);
   assert.equal(ringClosed(salt, { ix: 30, iz: 0 }, OPTIONS).closed, false, 'outside');
-  assert.equal(ringClosed(salt, { ix: 10, iz: 0 }, OPTIONS).closed, false, 'on the salt itself');
   assert.equal(ringClosed(ring(3), { ix: 0, iz: 0 }, OPTIONS).closed, false, 'too small to cover');
   assert.equal(ringClosed(new Set(), { ix: 0, iz: 0 }, OPTIONS).closed, false, 'no salt');
 });
@@ -56,4 +55,16 @@ test('saltCells keeps only cells whose latest substance is salt', () => {
   const cells = new Map([['0,0', 0.01], ['1,0', 0.01], ['2,0', 0]]);
   const kinds = new Map([['0,0', 'salt'], ['1,0', 'hg'], ['2,0', 'salt']]);
   assert.deepEqual([...saltCells(cells, kinds)], ['0,0']);
+});
+
+test('gold lying on or right next to the salt line still counts as inside when the ring is closed around it', () => {
+  const salt = ring(10);
+  const result = ringClosed(salt, { ix: 9, iz: 0 }, { ...OPTIONS, gapTol: 0 }); // one cell from the line, inside
+  assert.equal(result.closed, true);
+  assert.equal(ringClosed(salt, { ix: 10, iz: 0 }, { ...OPTIONS, gapTol: 0 }).closed, true, 'on the line: the nearest free cell is inside or outside; inside here');
+});
+
+test('a wider search for a start cell does not make an open ring closed', () => {
+  const open = ring(10, { gapAt: 0, gapHalfWidth: 0.3 });
+  assert.equal(ringClosed(open, { ix: 0, iz: 0 }, OPTIONS).closed, false);
 });

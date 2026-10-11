@@ -71,11 +71,11 @@ export function createDropWorld(ctx) {
 
     // A loaded spoon (source.sprinkle) moves: grains trickle out while it is low over the table.
     trickle(source, carry, pos) {
-      const n = trickle(carry, pos, { perMeter: CFG.TRICKLE_PER_M, maxHeight: CFG.TRICKLE_HEIGHT });
-      for (let i = 0; i < n; i++) {
+      const grains = trickle(carry, pos, { perMeter: CFG.TRICKLE_PER_M, maxHeight: CFG.TRICKLE_HEIGHT });
+      grains.forEach((p, i) => {
         const a = (carry.load + i) * GOLDEN_ANGLE;
-        spawnDrop(ctx.drops, pos, { x: Math.cos(a) * 0.01, y: 0, z: Math.sin(a) * 0.01 }, source.amount, source.substance);
-      }
+        spawnDrop(ctx.drops, p, { x: Math.cos(a) * 0.004, y: 0, z: Math.sin(a) * 0.004 }, source.amount, source.substance);
+      });
     },
 
     // The vial broke: its mercury scatters from where it broke.

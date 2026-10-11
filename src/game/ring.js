@@ -2,16 +2,31 @@
 // stay inside. Cells are blocked by salt, or by salt within `gapTol` cells (so a small gap still counts as closed).
 // salt: Set of 'ix,iz'; center: { ix, iz }; options: { maxRadius (cells), minArea (cells), gapTol (cells) }.
 // Returns { closed, area }.
-export function ringClosed(salt, center, { maxRadius, minArea, gapTol = 0 }) {
+export function ringClosed(salt, center, { maxRadius, minArea, gapTol = 0, startReach = 3 }) {
   const key = (ix, iz) => `${ix},${iz}`;
   const blocked = (ix, iz) => {
     for (let dz = -gapTol; dz <= gapTol; dz++) for (let dx = -gapTol; dx <= gapTol; dx++) if (salt.has(key(ix + dx, iz + dz))) return true;
     return false;
   };
-  if (blocked(center.ix, center.iz)) return { closed: false, area: 0 };
+  // The gold may lie on or next to the salt: start from the nearest free cell within `startReach` cells of it
+  let start = null;
+  for (let r = 0; r <= startReach && !start; r++) {
+    let best = Infinity;
+    for (let dz = -r; dz <= r; dz++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r || blocked(center.ix + dx, center.iz + dz)) continue;
+        const d = Math.hypot(dx, dz);
+        if (d < best) {
+          best = d;
+          start = [center.ix + dx, center.iz + dz];
+        }
+      }
+    }
+  }
+  if (!start) return { closed: false, area: 0 };
 
-  const seen = new Set([key(center.ix, center.iz)]);
-  const queue = [[center.ix, center.iz]];
+  const seen = new Set([key(start[0], start[1])]);
+  const queue = [start];
   for (let i = 0; i < queue.length; i++) {
     const [ix, iz] = queue[i];
     if (Math.hypot(ix - center.ix, iz - center.iz) > maxRadius) return { closed: false, area: seen.size }; // it got out

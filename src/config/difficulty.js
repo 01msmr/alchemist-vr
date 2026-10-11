@@ -14,7 +14,7 @@ export const DIFFICULTY = {
     SPARE_VIALS: 1,
     HINT_DELAY: 0,
     SMOKE_RATE: 0.5, SMOKE_DECAY: 0.06, // the ghost shows sooner and stays
-    RING_GAP_TOL: 1,
+    RING_GAP_TOL: 2,
     TRAP_HOLD: 1,
   },
   normal: {},
@@ -31,6 +31,7 @@ export const DIFFICULTY = {
     HINT_DELAY: 1e9,
     SMOKE_RATE: 0.25, SMOKE_DECAY: 0.15,
     TRAP_HOLD: 2.2,
+    RING_GAP_TOL: 0,
     RING_MIN_CELLS: 60,
   },
 };

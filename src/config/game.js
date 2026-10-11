@@ -77,9 +77,9 @@ export const CFG = {
   SALT_GRAINS_PER_SCOOP: 110,
   TRICKLE_PER_M: 170, // salt grains that fall per meter the loaded spoon moves
   TRICKLE_HEIGHT: 0.2, // m above the table: higher up the spoon does not spill
-  RING_RADIUS_MAX: 0.18, // m: a ring must close within this around the gold
+  RING_RADIUS_MAX: 0.25, // m: a ring must close within this around the gold
   RING_MIN_CELLS: 40, // the ring encloses at least this many cells (voxel sized)
-  RING_GAP_TOL: 0, // gaps up to 2 x this many cells still count as closed
+  RING_GAP_TOL: 1, // gaps up to 2 x this many cells (about 1.5 cm) still count as closed
   TRAP_HOLD: 1.5, // s the inverted vial must hold over the ring
   TRAP_RADIUS: 0.07, // m: the vial's mouth must be this close to the ring's middle
   EYE_RADIUS: 0.05, // m: the gold lies this close to the cat's eyes

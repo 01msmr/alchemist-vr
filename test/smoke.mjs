@@ -432,13 +432,13 @@ try {
   // a salt ring (radius 6 cm) around the gold, with a gap first
   await game(() => {
     const g = window.__game;
-    for (let a = 0.4; a < 2 * Math.PI; a += 0.02) g.puddles.add(0.05 + 0.06 * Math.cos(a), -0.2 + 0.06 * Math.sin(a), 0.005, 'salt');
+    for (let a = 0.9; a < 2 * Math.PI; a += 0.02) g.puddles.add(0.05 + 0.06 * Math.cos(a), -0.2 + 0.06 * Math.sin(a), 0.005, 'salt');
   });
   await new Promise((r) => setTimeout(r, 400));
   check((await game(() => window.__game.state.ring.closed)) === false, 'a ring with a gap is open');
   await game(() => {
     const g = window.__game;
-    for (let a = 0; a < 0.45; a += 0.02) g.puddles.add(0.05 + 0.06 * Math.cos(a), -0.2 + 0.06 * Math.sin(a), 0.005, 'salt');
+    for (let a = 0; a < 0.95; a += 0.02) g.puddles.add(0.05 + 0.06 * Math.cos(a), -0.2 + 0.06 * Math.sin(a), 0.005, 'salt');
   });
   await new Promise((r) => setTimeout(r, 600));
   check(await game(() => window.__game.state.ring.closed), 'the closed ring is seen');
