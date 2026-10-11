@@ -4,7 +4,7 @@ A voxel alchemist game for WebXR on Meta Quest (game jam, theme: Magic). You sta
 and work with controllers (hand tracking works as a fallback, a mouse mode on the desktop). Three experiments:
 lead + mercury = amalgam, amalgam + sulfur + heat + stirring = gold, and a ghost caught in a salt ring that brings a straw cat to life.
 
-**Play and screenshots:** the page `about.html` (source in `public/`) is the short project page; the game is `index.html`.
+**Play and screenshots:** the page `about.html` (source in `public/`) is the short project page; the game is `index.html`. The text for the itch.io page (fields, description, controls, cover) is in [docs/itch.md](docs/itch.md).
 
 ## Run
 ```
