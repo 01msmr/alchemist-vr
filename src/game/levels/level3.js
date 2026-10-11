@@ -22,6 +22,15 @@ export const level3 = {
     ],
   },
 
+  // the state after level 2 done perfectly: an empty crucible, the candle lit, a perfect gold nugget (the runner puts it on the table)
+  preset(s) {
+    s.crucible = { content: 'empty', temp: 0.3, amounts: {}, quality: null, stir: 0 };
+    s.candleLit = true;
+    s.matches = 2;
+    s.nugget = { kind: 'gold', quality: 1 };
+    s.wasted = 0;
+  },
+
   accepts: { herb: () => true },
   reactions: [],
 

@@ -28,6 +28,14 @@ export const level2 = {
     dull: { step: 1, text: 'Mattes Gold: rühre länger und halte das rechte Maß.' },
   },
 
+  // the state after level 1 done perfectly: a perfect amalgam, the candle lit and the lead still warm (see runner.preset)
+  preset(s) {
+    s.crucible = { content: 'amalgam', temp: 0.55, amounts: { hg: 1 }, quality: 1, stir: 0 };
+    s.candleLit = true;
+    s.matches = 2;
+    s.wasted = 0;
+  },
+
   accepts: { sulfur: (c) => c.content === 'amalgam' },
   // what can be stirred: hot amalgam that has sulfur in it
   stirs: (c) => c.content === 'amalgam' && sulfur(c) > 0 && c.temp >= CFG.MELT,

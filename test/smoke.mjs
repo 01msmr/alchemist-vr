@@ -219,6 +219,44 @@ try {
   await new Promise((r) => setTimeout(r, 500));
   check((await game(() => window.__game.notes[0])) === null, 'a restart wipes the note');
 
+  // 11c. push the cord up: the perfect preconditions of the level whose page is open in the book (turn to level 3, push, it is there)
+  await game(() => {
+    const g = window.__game;
+    const o = g.view.world.position; // the console from the front again
+    g.view.controls.target.set(o.x + 0.6, o.y + 0.25, o.z);
+    g.view.camera.position.set(o.x + 0.6, o.y + 0.55, o.z + 1.0);
+    g.view.controls.update();
+  });
+  await page.keyboard.press('r');
+  await new Promise((r) => setTimeout(r, 500));
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await page.waitForFunction(() => window.__game.book.shown === 2, { timeout: 20000 }).catch(() => {});
+  const pushBead = await game(() => window.__game.screenOf('bead'));
+  await moveTo(pushBead);
+  await page.mouse.down();
+  await moveTo({ x: pushBead.x, y: pushBead.y - 40 }, 6);
+  const halfPush = await game(() => window.__game.cordPulled);
+  check(halfPush < -0.02 && halfPush > -0.1, `pushing the bead up moves it up (${halfPush.toFixed(3)} m)`);
+  check((await game(() => window.__game.state.level)) === 1, 'a half push changes nothing');
+  await moveTo({ x: pushBead.x, y: pushBead.y - 200 }, 12);
+  await page.mouse.up();
+  await page.waitForFunction(() => window.__game.state.level === 3 && window.__game.fade.dark < 0.05, { timeout: 60000 }).catch(() => {});
+  const pre = await game(() => { const s = window.__game.state; return { level: s.level, candle: s.candleLit, nugget: s.nugget, vialFill: s.vial.fill, nuggetTool: window.__game.tool('nugget').active }; });
+  check(pre.level === 3 && pre.candle && pre.nugget?.kind === 'gold' && pre.nugget.quality === 1 && pre.nuggetTool, `the level of the open page starts with its perfect preconditions (${JSON.stringify(pre)})`);
+  // on the page of the level that is running, the push gives that level's preconditions again
+  await game(() => { window.__game.state.candleLit = false; });
+  const again = await game(() => window.__game.screenOf('bead'));
+  await moveTo(again);
+  await page.mouse.down();
+  await moveTo({ x: again.x, y: again.y - 200 }, 12);
+  await page.mouse.up();
+  await page.waitForFunction(() => window.__game.fade.dark > 0.9, { timeout: 30000 }).catch(() => {});
+  await page.waitForFunction(() => window.__game.fade.dark < 0.05, { timeout: 60000 }).catch(() => {});
+  check(await game(() => window.__game.state.candleLit), 'pushing again sets the preconditions of the level that is running');
+  await page.keyboard.press('r');
+  await page.waitForFunction(() => window.__game.book.shown === 0, { timeout: 30000 }).catch(() => {}); // the book turns back to the first level
+
   // 11b. the book of instructions: it turns with the levels, and by hand at its lower corners (mouse click, arrow keys)
   check((await game(() => window.__game.book.shown)) === 0, 'the book is open at the first level');
   const firstHint = await game(() => window.__game.hint);

@@ -33,41 +33,42 @@ export function pockets() {
 
 export const cordPosition = () => ({ x: maxX - K.cord.inset, z: K.cord.z });
 
-// the pull cord: grab the bead, drag it down, at the full pull the cord fires once, let go and it springs back up.
+// The pull cord: grab the bead; pull it down (`pull` m) and the game starts over, push it up (`push` m) and the level shown in the book
+// starts with its perfect preconditions (to try a level without the ones before). Either fires once; let go early and it springs back to the middle.
 // `y` values are heights of the fingertip (any frame, only differences count).
-export function createCord({ pull, springTime }) {
-  let pulled = 0;
+export function createCord({ pull, push, springTime }) {
+  let pulled = 0; // positive: down, negative: up
   let anchor = 0;
   let grabbed = false;
   let fired = false;
   return {
     get pulled() { return pulled; },
-    get progress() { return pulled / pull; },
+    get progress() { return pulled >= 0 ? pulled / pull : pulled / push; }, // 0..1 pulling down, 0..-1 pushing up
     get grabbed() { return grabbed; },
-    get canGrab() { return !fired; }, // not while it is still returning from a restart
+    get canGrab() { return !fired; }, // not while it is still returning
     grab(y) {
-      if (fired) return; // still returning from a restart
+      if (fired) return;
       grabbed = true;
       anchor = y + pulled;
     },
     drag(y) {
-      if (grabbed) pulled = Math.min(pull, Math.max(0, anchor - y));
+      if (grabbed) pulled = Math.min(pull, Math.max(-push, anchor - y));
     },
     release() { grabbed = false; },
-    // each frame; true exactly once when the pull is complete
+    // each frame; 'restart' or 'preset' exactly once when the pull or the push is complete, else null
     step(dt) {
-      let fire = false;
-      if (grabbed && pulled >= pull && !fired) {
+      let result = null;
+      if (grabbed && !fired && (pulled >= pull || pulled <= -push)) {
         fired = true;
-        fire = true;
+        result = pulled >= pull ? 'restart' : 'preset';
         grabbed = false;
       }
       if (!grabbed) {
         pulled *= Math.exp(-dt / springTime);
-        if (pulled < 1e-4) pulled = 0;
+        if (Math.abs(pulled) < 1e-4) pulled = 0;
       }
-      if (fired && pulled < pull * 0.05) fired = false;
-      return fire;
+      if (fired && Math.abs(pulled) < Math.min(pull, push) * 0.05) fired = false;
+      return result;
     },
   };
 }

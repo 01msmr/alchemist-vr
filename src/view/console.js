@@ -58,6 +58,7 @@ export function createConsoleView(view) {
 
   const white = new THREE.Color(K.colors.cordWhite);
   const red = new THREE.Color(K.colors.cordRed);
+  const presetColor = new THREE.Color(K.colors.cordPreset);
   const lit = new THREE.Color(K.colors.buttonActive);
   const dim = new THREE.Color(K.colors.buttonPassive);
   let drawnCord = '';
@@ -73,15 +74,16 @@ export function createConsoleView(view) {
 
       const bottom = cord.beadY - pulled;
       const count = Math.min(maxSegments, Math.floor((cord.lampY - bottom) / cord.segment));
-      const redCount = redSegments(progress, count);
+      const redCount = redSegments(Math.abs(progress), count);
+      const mark = progress < 0 ? presetColor : red; // pushing up colors the cord blue
       bead.position.set(at.x, bottom - cord.bead / 2, at.z);
       bead.material.color.set(near ? K.colors.beadNear : K.colors.bead);
       bead.scale.setScalar(near ? 1.25 : 1);
-      const key = `${count} ${redCount}`;
+      const key = `${count} ${redCount} ${progress < 0}`;
       if (key === drawnCord) return;
       drawnCord = key;
       segments.count = count;
-      for (let i = 0; i < count; i++) segments.setColorAt(i, i < redCount ? red : white);
+      for (let i = 0; i < count; i++) segments.setColorAt(i, i < redCount ? mark : white);
       segments.instanceColor.needsUpdate = true;
     },
   };

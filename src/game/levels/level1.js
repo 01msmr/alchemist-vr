@@ -57,6 +57,13 @@ export const level1 = {
   ],
 
   // the symbol for the next step: { icon, at } (at = a place, see runtime/hints.js), or null
+  // the perfect preconditions of this level: the candle is lit and the lead is already melted (see runner.begin)
+  preset(s) {
+    s.crucible.temp = 0.55;
+    s.candleLit = true;
+    s.matches = 2;
+  },
+
   // `urgent`: the lead is heating, there is not much time (the hint shows at once on normal)
   hint(s, info) {
     const c = s.crucible;

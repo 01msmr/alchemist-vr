@@ -61,13 +61,13 @@ test('pockets are whole voxels, inside the table, and do not overlap', () => {
 
 const cfg = CONSOLE.cord;
 
-test('the cord follows the finger down, clamped to 0..pull', () => {
+test('the cord follows the finger, clamped to -push..pull (down is positive)', () => {
   const cord = createCord(cfg);
   cord.grab(1);
   cord.drag(0.95);
   assert.ok(Math.abs(cord.pulled - 0.05) < 1e-12);
   cord.drag(1.2);
-  assert.equal(cord.pulled, 0, 'up past the start stays at 0');
+  assert.ok(Math.abs(cord.pulled + 0.2) < 1e-12 || cord.pulled < 0, 'up from the start pushes it up');
   cord.drag(0);
   assert.equal(cord.pulled, cfg.pull);
 });
@@ -76,26 +76,26 @@ test('the cord fires once at full pull, then returns and can be pulled again', (
   const cord = createCord(cfg);
   cord.grab(1);
   cord.drag(1 - cfg.pull);
-  assert.equal(cord.step(0.01), true);
+  assert.equal(cord.step(0.01), 'restart');
   cord.grab(1 - cfg.pull); // still returning: refused
   assert.equal(cord.grabbed, false);
-  for (let i = 0; i < 100; i++) assert.equal(cord.step(0.02), false);
+  for (let i = 0; i < 100; i++) assert.equal(cord.step(0.02), null);
   assert.equal(cord.pulled, 0);
   cord.grab(1);
   cord.drag(1 - cfg.pull);
-  assert.equal(cord.step(0.01), true);
+  assert.equal(cord.step(0.01), 'restart');
 });
 
 test('a pull let go early springs back and never fires', () => {
   const cord = createCord(cfg);
   cord.grab(1);
   cord.drag(1 - cfg.pull / 2);
-  assert.equal(cord.step(0.01), false);
+  assert.equal(cord.step(0.01), null);
   assert.ok(Math.abs(cord.progress - 0.5) < 1e-9);
   cord.release();
-  let fired = false;
+  let fired = null;
   for (let i = 0; i < 100; i++) fired = cord.step(0.02) || fired;
-  assert.equal(fired, false);
+  assert.equal(fired, null);
   assert.equal(cord.pulled, 0);
 });
 
@@ -121,4 +121,42 @@ test('the cord cannot be grabbed while it is still returning from a restart, and
 test('the grab radius is generous enough for a shaky hand and smaller than the distance to the buttons', () => {
   assert.ok(cfg.grabRadius >= 0.07, 'at least 7 cm');
   assert.ok(cfg.grabRadius < cfg.beadY, 'and not as big as the way to the table');
+});
+
+test('pushing the cord up all the way fires "preset" once, then it returns', () => {
+  const cord = createCord(cfg);
+  cord.grab(1);
+  cord.drag(1 + cfg.push / 2);
+  assert.ok(Math.abs(cord.progress + 0.5) < 1e-9, 'halfway up is -0.5');
+  assert.equal(cord.step(0.01), null);
+  cord.drag(1 + cfg.push);
+  assert.equal(cord.step(0.01), 'preset');
+  assert.equal(cord.canGrab, false);
+  for (let i = 0; i < 100; i++) assert.equal(cord.step(0.02), null);
+  assert.equal(cord.pulled, 0);
+  assert.equal(cord.canGrab, true);
+});
+
+test('pushing up is clamped and never fires a restart; pulling down never fires a preset', () => {
+  const cord = createCord(cfg);
+  cord.grab(1);
+  cord.drag(10);
+  assert.equal(cord.pulled, -cfg.push);
+  assert.equal(cord.step(0.01), 'preset');
+  const other = createCord(cfg);
+  other.grab(1);
+  other.drag(-10);
+  assert.equal(other.pulled, cfg.pull);
+  assert.equal(other.step(0.01), 'restart');
+});
+
+test('letting go of a half push springs back without firing', () => {
+  const cord = createCord(cfg);
+  cord.grab(1);
+  cord.drag(1 + cfg.push * 0.6);
+  cord.release();
+  let fired = null;
+  for (let i = 0; i < 100; i++) fired = cord.step(0.02) || fired;
+  assert.equal(fired, null);
+  assert.equal(cord.pulled, 0);
 });

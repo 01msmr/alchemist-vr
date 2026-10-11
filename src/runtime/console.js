@@ -119,10 +119,12 @@ export function createConsole(ctx) {
           if (control) press(control);
         }
       });
-      if (cord.step(dt)) {
+      const fired = cord.step(dt);
+      if (fired) {
         holder.hand = null;
         holder.mouse = false;
-        ctx.runner.reset();
+        if (fired === 'restart') ctx.runner.reset();
+        else ctx.runner.preconditions(); // pushed up: the perfect preconditions of the level shown in the book
       }
       look.update(settings.get(), cord.pulled, cord.progress, near || cord.grabbed);
     },

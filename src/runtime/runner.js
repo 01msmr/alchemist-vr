@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { LAYOUT, VIEW } from '../config/index.js';
 import { bookBounds } from '../game/book.js';
 import { createState, levelOf } from '../game/sim.js';
@@ -39,32 +40,52 @@ export function createRunner(ctx) {
     }
   }
 
+  // Start `level` from a clean table. With `preset` the state is the one the level wants as its perfect preconditions (as if the
+  // levels before had been done perfectly; see `preset` in the level files), to try a level without playing the ones before.
+  function begin(level, { preset = false } = {}) {
+    ctx.hazard?.reset(); // no red notes in the book
+    ctx.state = createState();
+    ctx.state.level = level.id;
+    if (preset) level.preset?.(ctx.state);
+    ctx.dropWorld.reset();
+    ctx.puddles.clear();
+    ctx.stirring.reset();
+    ctx.matches.reset();
+    ctx.mouse?.reset();
+    physics.reset();
+    for (const hand of ctx.hands) {
+      hand.held = null;
+      hand.tool = null;
+      hand.holdMode = null;
+      hand.grains = null;
+      hand.carry = null;
+      hand.pinchOn = false;
+      hand.squeezeOn = false;
+    }
+    for (const t of ctx.tools.list) ctx.tools.deactivate(t);
+    enter(level, null);
+    if (preset && ctx.state.nugget) { // the gold lies on the table
+      const p = LAYOUT.presetNugget;
+      ctx.tools.spawn(ctx.tools.tools.nugget, new THREE.Vector3(p.x, p.y, p.z));
+    }
+    view.refresh.clear();
+  }
+
   return {
     enter,
+    begin,
+
+    // pushing the cord up: the perfect preconditions of the level whose page is open in the book (fades like a change of level)
+    preconditions() {
+      if (ctx.transition.active) return;
+      const level = LEVELS[ctx.book.book.target] ?? LEVELS[ctx.state.level - 1];
+      ctx.transition.go(level, levelOf(ctx.state), { preset: true });
+    },
 
     // a new game: level 1 with nothing spilled
     reset() {
       ctx.transition?.cancel(); // no fade for a restart
-      ctx.hazard?.reset(); // and no red notes in the book
-      ctx.state = createState();
-      ctx.dropWorld.reset();
-      ctx.puddles.clear();
-      ctx.stirring.reset();
-      ctx.matches.reset();
-      ctx.mouse?.reset();
-      physics.reset();
-      for (const hand of ctx.hands) {
-        hand.held = null;
-        hand.tool = null;
-        hand.holdMode = null;
-        hand.grains = null;
-        hand.carry = null;
-        hand.pinchOn = false;
-        hand.squeezeOn = false;
-      }
-      for (const t of ctx.tools.list) ctx.tools.deactivate(t);
-      enter(LEVELS[0], null);
-      view.refresh.clear();
+      begin(LEVELS[0]);
     },
 
     levelOf: () => levelOf(ctx.state),

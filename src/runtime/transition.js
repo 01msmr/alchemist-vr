@@ -26,9 +26,9 @@ export function createTransitionRuntime(ctx, fade) {
       begin({ startDark: true });
     },
 
-    // a level is done: fade out, enter `next` in the dark
-    go(next, before) {
-      pending = { next, before };
+    // a level is done (or the perfect preconditions of a level are wanted): fade out, set up `next` in the dark; `preset`: from a clean table, in the perfect state of that level
+    go(next, before, { preset = false } = {}) {
+      pending = { next, before, preset };
       card = { title: next.guide.title, subtitle: next.guide.motto };
       begin();
     },
@@ -52,8 +52,13 @@ export function createTransitionRuntime(ctx, fade) {
       }
       const f = stepTransition(tr, dt, VIEW.transition);
       if (f.swap && pending) {
-        commitLevel(ctx.state, pending.next);
-        ctx.runner.enter(pending.next, pending.before);
+        if (pending.preset) {
+          ended = false;
+          ctx.runner.begin(pending.next, { preset: true }); // a clean table in the perfect state of that level
+        } else {
+          commitLevel(ctx.state, pending.next);
+          ctx.runner.enter(pending.next, pending.before);
+        }
         pending = null;
       }
       if (f.cardStart && card) fade.showCard(card.title, card.subtitle);

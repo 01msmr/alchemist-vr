@@ -12,7 +12,7 @@ export const CONSOLE = {
   ],
   buttons: { sizeVoxels: 4, pitch: 0.06, inset: 0.1, iconSize: 0.05, iconGap: 0.045 }, // the icon picture is this wide (m) and lies this far behind its button's middle
   tapMargin: 0.01, // a fingertip this close outside a button still counts as over it
-  cord: { inset: 0.32, z: 0.05, lampY: 1.35, beadY: 0.45, pull: 0.15, grabRadius: 0.09, springTime: 0.2, segment: 0.0075, bead: 0.04 },
+  cord: { inset: 0.32, z: 0.05, lampY: 1.35, beadY: 0.45, pull: 0.15, push: 0.1, grabRadius: 0.09, springTime: 0.2, segment: 0.0075, bead: 0.04 },
   colors: {
     pocketFloor: 0x3b3f45,
     buttonPassive: 0x1f5a2e, // dark green
@@ -22,7 +22,8 @@ export const CONSOLE = {
     lamp: 0xffe27a,
     socket: 0x555555,
     cordWhite: 0xeeeeee,
-    cordRed: 0xe53935,
+    cordRed: 0xe53935, // pulling down: the game starts over
+    cordPreset: 0x2e9bd6, // pushing up: the perfect preconditions of the level shown in the book
     bead: 0xd9d2c0,
     beadNear: 0xfff2b0, // the bead lights up when a hand is in reach
   },

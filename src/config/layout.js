@@ -37,6 +37,7 @@ export const LAYOUT = {
   cushion: { x: -0.55, z: -0.36, half: 0.05 },
   // the old book with the instructions, open, lying left of the experiment (yaw in rad; a page is pageW x pageD m)
   book: { x: -0.55, z: -0.12, pageW: 0.2, pageD: 0.28, yaw: 0.1, zone: 0.07 },
+  presetNugget: { x: 0.16, y: 0.02, z: 0.14 }, // where the gold lies when a later level is started with perfect preconditions
   // where the tools start: x, z on the table; `lying` = on its side with its axis along x, else standing up
   // (y = where it stands: the shelf's top; the main tools start in the left half of the shelf)
   rest: { vial: { x: -0.425, y: 0.12, z: shelfZ, lying: false }, rod: { x: -0.2, y: 0.12, z: shelfZ, lying: true } },
