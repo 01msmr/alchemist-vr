@@ -21,6 +21,7 @@ import { createMouse } from './runtime/mouse.js';
 import { createCalibration } from './runtime/calibration.js';
 import { createConsole } from './runtime/console.js';
 import { installTestHook } from './testhook.js';
+import { createTriggerLog } from './triggertest.js';
 
 // The composition: the pieces are built here and share one `ctx` (the world they live in); the loop at the end
 // runs them in order. Rules are in game/, what you see in view/, what the player can do in runtime/, all numbers
@@ -78,6 +79,7 @@ for (const hand of ctx.hands) {
 ctx.runner.reset();
 installTestHook(ctx);
 
+const triggerLog = new URLSearchParams(location.search).has('trigger') ? createTriggerLog() : null; // ?trigger: show the raw trigger values on the panel
 const { tools, matches, dropWorld, effects, physics } = ctx;
 const { meshes, refresh } = view;
 let lastPourPulse = 0;
@@ -136,7 +138,7 @@ view.renderer.setAnimationLoop(() => {
     entry.data.quaternion.set(entry.body.quaternion.x, entry.body.quaternion.y, entry.body.quaternion.z, entry.body.quaternion.w);
   }
 
-  ctx.hud.update(statusLines(state, level, ctx.hands, ctx.puddles.total(), ctx.calibration.statusLine()), time);
+  ctx.hud.update(triggerLog ? triggerLog.lines(ctx.hands) : statusLines(state, level, ctx.hands, ctx.puddles.total(), ctx.calibration.statusLine()), time);
   if (!view.renderer.xr.isPresenting) view.controls.update();
   view.renderer.render(view.scene, view.camera);
 });
