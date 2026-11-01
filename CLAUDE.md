@@ -1,4 +1,5 @@
 # Alchemist Voxel VR – Project Handoff
+> Governed by **CLAUDE MASTER** (`../CLAUDE.md`). Rules here extend it; they do not override it.
 
 Game jam entry (theme: **Magic**). A voxel-style alchemist game in **WebXR VR on Meta Quest**, played standing, with controllers, where the virtual table / wall / floor are calibrated onto the real ones.
 
