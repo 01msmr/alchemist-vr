@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alchemist VR</title>
+<meta name="description" content="A voxel alchemist for WebXR on Meta Quest. Make gold, catch a ghost, bring a cat to life.">
+<style>
+@font-face { font-family: 'Fraktur'; src: url('media/fonts/unifrakturcook-latin-700-normal.woff2') format('woff2'); font-weight: 700; }
+:root { --bg: #14100c; --paper: #eadcb6; --ink: #2a1a0e; --gold: #e8d8a8; --muted: #a8977a; --accent: #c9a24a; --card: #1f1912; }
+@media (prefers-color-scheme: light) { :root { --bg: #efe6d0; --paper: #f7efd9; --ink: #2a1a0e; --gold: #3a2713; --muted: #6a5a40; --accent: #8a6420; --card: #f7efd9; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--gold); font: 16px/1.55 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+main { max-width: 860px; margin: 0 auto; padding: 24px 16px 48px; }
+h1, h2 { font-family: 'Fraktur', serif; font-weight: 700; margin: 0; }
+h1 { font-size: clamp(44px, 9vw, 76px); line-height: 1.05; }
+h2 { font-size: 30px; margin: 32px 0 8px; }
+.tag { color: var(--muted); margin: 6px 0 20px; }
+.hero { width: 100%; display: block; border-radius: 8px; border: 1px solid #3a2f20; }
+.shots { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.shots img { width: 100%; display: block; border-radius: 8px; border: 1px solid #3a2f20; }
+figcaption { color: var(--muted); font-size: 14px; margin-top: 4px; }
+figure { margin: 0; }
+.play { display: inline-block; margin: 20px 12px 0 0; padding: 12px 22px; background: var(--accent); color: #1a1208; font-weight: 700; border-radius: 6px; text-decoration: none; }
+.play.alt { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+ol, ul { padding-left: 22px; margin: 6px 0; }
+li { margin: 4px 0; }
+table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 15px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #3a2f20; vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+.note { background: var(--card); border-left: 3px solid var(--accent); padding: 8px 12px; margin: 12px 0; color: var(--gold); }
+footer { margin-top: 36px; color: var(--muted); font-size: 14px; }
+a { color: var(--accent); }
+@media (max-width: 560px) { .shots { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Alchemist VR</h1>
+  <p class="tag">A voxel alchemist for WebXR on Meta Quest. Game jam entry, theme: Magic.</p>
+
+  <figure>
+    <img class="hero" src="media/the-end.png" alt="The success screen: Das Ende. Die Katze lebt, und der Geist hat ein Zuhause gefunden.">
+    <figcaption>The success screen, when the cat comes to life.</figcaption>
+  </figure>
+
+  <a class="play" href="./">Play (Quest browser or desktop)</a>
+  <a class="play alt" href="https://github.com/01msmr/alchemist-vr">Source</a>
+
+  <h2>The game</h2>
+  <p>You stand at a real table, a virtual one on top of it: a candle, a crucible, a shelf of tools and an old book of instructions. Three experiments, one after the other:</p>
+  <ol>
+    <li><b>Lead and mercury.</b> Strike a match, light the candle, melt the lead, pour the mercury into the green window. Too hot, too long, and it burns.</li>
+    <li><b>The gold.</b> Add sulfur with the long spoon, keep it hot, stir with the rod, take the gold out with the tongs.</li>
+    <li><b>The ghost and the cat.</b> Burn herbs for smoke, draw a closed salt ring around the gold, catch the ghost with the upside-down vial, give the straw cat its golden eyes and let the ghost in.</li>
+  </ol>
+  <figure class="shots">
+    <div><img src="media/table.png" alt="The table with the book, the shelf, the crucible and the settings buttons"><figcaption>The table: book, shelf, crucible, settings.</figcaption></div>
+    <div><img src="media/cat-alive.png" alt="The black cat on its way to the cushion"><figcaption>The cat, alive, on its way to the cushion.</figcaption></div>
+  </figure>
+
+  <h2>How to play</h2>
+  <ul>
+    <li><b>Quest, controllers.</b> Open this page in the Quest browser and press the VR button. Hands (hand tracking) also work.</li>
+    <li><b>Set the table.</b> Tap the real table's top with the end of a tool, three quick taps at its front edge, then three more farther along the edge. It remembers it. The white areas show where a tap does not count.</li>
+    <li><b>Desktop.</b> Mouse only, no headset needed.</li>
+  </ul>
+  <table>
+    <tr><th></th><th>Controllers</th><th>Desktop</th></tr>
+    <tr><td>Take a hand tool</td><td>grip button at its place on the shelf (tongs, spoon)</td><td>-</td></tr>
+    <tr><td>Hold the vial, take a match or the gold</td><td>trigger, with the tongs</td><td>drag / click</td></tr>
+    <tr><td>Scoop sulfur, herbs, salt</td><td>trigger at the dish, with the spoon</td><td>click the dish</td></tr>
+    <tr><td>Stir</td><td>take the rod with the trigger (any hand)</td><td>drag</td></tr>
+    <tr><td>Pour</td><td>tilt the vial</td><td>Shift + drag up/down</td></tr>
+    <tr><td>Settings (look, background, difficulty)</td><td>tap a button with the tool tip</td><td>click</td></tr>
+    <tr><td>Turn the book</td><td>tap its lower corners</td><td>arrow keys</td></tr>
+    <tr><td>Start over</td><td>pull the cord of the lamp</td><td>R</td></tr>
+  </table>
+  <p class="note">Three difficulty levels change the windows and the time you have. A symbol shows the next step when you are stuck (not on hard).</p>
+
+  <footer>
+    Made with three.js, cannon-es and Vite. Icons: <a href="https://fontawesome.com">Font Awesome Free</a> (CC BY 4.0). Font: UnifrakturCook (SIL OFL).
+  </footer>
+</main>
+</body>
+</html>
